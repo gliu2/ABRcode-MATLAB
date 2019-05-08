@@ -10,7 +10,10 @@
 %
 % 3-13-2019
 % rewrite for 10 hard-coded csv files
-% Dependencies: acf.m
+% Dependencies: acf.m, same_yaxes.m
+%
+% Last edit: 5-7-19 - update make y-axes same
+% George S. Liu
 
 SAMPLES = size(X_csv{i}, 1);
 SAMPLING_RATE = 200000; % Hz
@@ -26,18 +29,20 @@ x = 0:dt:T_total;
 
 RMS2_averaged_trace = zeros(A_length, 1);
 figure
+AxesHandles_1 = zeros(A_length, 1);
 for i = 1:A_length
     y = mean(X_csv{i}, 2);
     
-    subplot(ceil(A_length/2),2,i)  
+    AxesHandles_1(i) = subplot(ceil(A_length/2),2,i);
     plot(x, y)
     title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
     xlabel('Time (ms)')
-    ylabel('Voltage (nV)')
+    ylabel('Voltage (V)')
     
     % Append RMS squared
     RMS2_averaged_trace(i, 1) = analyze_v2_ABR(y);
 end
+same_yaxes(AxesHandles_1)
     
 % subplot(2,2,2)       
 % plot(x,y2)        
@@ -55,18 +60,20 @@ num_examples = 5;
 % RMS2_signal_traces = [];
 % RMS2_noise_traces = [];
 RMS2_single_traces = cell(A_length, 1);
+AxesHandles_2 = zeros(A_length*num_examples, 1);
 for i = 1:A_length
     this_X = X_csv{i}; % 1952 x ? matrix
     for j = 1:num_examples
         y2 = this_X(:, j); % loop over first <num_examples> single traces
 
         count = (i-1)*num_examples + j;
-        subplot(A_length, num_examples, count)  
+        AxesHandles_2(count) = subplot(A_length, num_examples, count);
         plot(x, y2)
         title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
         xlabel('Time (ms)')
-        ylabel('Voltage (nV)')
+        ylabel('Voltage (V)')
     end
+    
     
     % Concatenate list of single trace RMS^2
     this_RMS2 = analyze_v2_ABR(this_X); % mx1 vector
@@ -77,6 +84,7 @@ for i = 1:A_length
 %     end
     RMS2_single_traces{i} = this_RMS2;
 end
+same_yaxes(AxesHandles_2)
 
 %% Histograms single trace
 % create a default color map ranging from red to light pink
@@ -99,7 +107,7 @@ box off % remove ticks on top and right borders of plot
 % axis tight % makes edges of data flush with left and right borders of plot
 legend('Noise', ['Signal (A=', num2str(A_csv(2)'), ')'], ['Signal (A=', num2str(A_csv(3)'), ')'], ['Signal (A=', num2str(A_csv(4)'), ')'], ['Signal (A=', num2str(A_csv(5)'), ')'], ['Signal (A=', num2str(A_csv(6)'), ')'], ['Signal (A=', num2str(A_csv(7)'), ')'], ['Signal (A=', num2str(A_csv(8)'), ')'], ['Signal (A=', num2str(A_csv(9)'), ')'], ['Signal (A=', num2str(A_csv(10)'), ')'], 'location', 'northeast')
 legend boxoff % remove box around legend
-xlabel('V_{RMS}^2 (nV^2)', 'FontSize', 32);
+xlabel('V_{RMS}^2 (V^2)', 'FontSize', 32);
 ylabel('Probability', 'FontSize', 32);
 title('Single traces', 'FontSize', 32);
 set(gca,'FontSize',20)
@@ -126,32 +134,45 @@ ylim([0.9, 1.1])
 set(gca,'FontSize',20)
 
 %% Distribution amplitudes at single time point changes with level
-i_noise = find(x==0.5); % noisy point t < latency peak 1
-i_neg_peak1 = find(x==1.745); % first negative peak/trough
-i_inflection_mid = find(x==2.055); % zero crossing between trough and peak 2/3
-i_pos_peak1 = find(x==2.255); % positive peak wave 2 (3?)
+DELAY_TONEPIP = 2; % ms when tone pip starts; ADJUST PER EXPERIMENT
 
-indexes_sp = [i_noise, i_neg_peak1, i_inflection_mid, i_pos_peak1];
+i_beforepip = find(x==1); % noisy point before tone pip, REMOVE IF TONE PIP NOT DELAYED 5-8-19
+i_noise = find(x==0.5 + DELAY_TONEPIP); % noisy point t < latency peak 1
+i_neg_peak1 = find(x==1.745 + DELAY_TONEPIP); % first negative peak/trough
+i_inflection_mid = find(x==2.055 + DELAY_TONEPIP); % zero crossing between trough and peak 2/3
+i_pos_peak1 = find(x==2.255 + DELAY_TONEPIP); % positive peak wave 2 (3?)
+
+indexes_sp = [i_beforepip, i_noise, i_neg_peak1, i_inflection_mid, i_pos_peak1];
+% indexes_sp = [i_noise, i_neg_peak1, i_inflection_mid, i_pos_peak1];
 num_sp = numel(indexes_sp);
 
 count2 = 0;
 figure
 % Loop over signal levels for each time point
+AxesHandles_3 = zeros(A_length, 1);
 for i = 1:A_length
     this_A = A_csv(i); % signal level
     this_X = X_csv{i}; % 1952 x ? matrix
     
+    % Plot averaged ABR trace in first column
     count2 = count2 + 1;
-    subplot(A_length, num_sp + 1, count2)  
+    AxesHandles_3(i) = subplot(A_length, num_sp + 1, count2);  
     y = mean(X_csv{i}, 2);
     plot(x, y)
     title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
     xlabel('Time (ms)')
-    ylabel('Voltage (nV)')
+    ylabel('Voltage (V)')
     hold on
+    % Draw red vertical lines at amplitude distributions' time points
     for k = 1:num_sp
         x_sp = x(indexes_sp(k)); % time point for plotting amplitude distribution
-        line([x_sp x_sp], ylim, 'LineWidth', 1, 'Color', 'r'); % vertical line for cutoff
+%         line([x_sp x_sp], ylim, 'LineWidth', 1, 'Color', 'r'); % vertical line for cutoff
+
+        % If setting ylims same for all subplots, then make vertical red
+        % lines all very tall
+        this_ylim = ylim;
+        line([x_sp x_sp], [-1,1], 'LineWidth', 1, 'Color', 'r'); % vertical line for cutoff
+        ylim(this_ylim)
     end
     hold off
     
@@ -164,7 +185,7 @@ for i = 1:A_length
         subplot(A_length, num_sp + 1, count2)  
         histogram(A_distribution, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'FaceColor', 'r')
         title(['T = ', num2str(x_sp), ' ms'])
-        xlabel('Amplitude (nV)')
+        xlabel('Amplitude (V)')
         ylabel('Probability')
         xlim([-3, 3]*10^-6)
         
@@ -175,6 +196,7 @@ for i = 1:A_length
         hold off
     end
 end
+same_yaxes(AxesHandles_3)
 
 %% Calculate single trace autocorrelation function
 
