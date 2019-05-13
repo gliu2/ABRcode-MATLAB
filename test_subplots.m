@@ -12,10 +12,10 @@
 % rewrite for 10 hard-coded csv files
 % Dependencies: acf.m, same_yaxes.m
 %
-% Last edit: 5-7-19 - update make y-axes same
+% Last edit: 5-9-19 - update make y-axes same
 % George S. Liu
 
-SAMPLES = size(X_csv{i}, 1);
+SAMPLES = size(X_csv{1}, 1);
 SAMPLING_RATE = 200000; % Hz
 dt = 1/SAMPLING_RATE * 1000; % ms
 T_total = (SAMPLES-1)*dt; % ms
@@ -25,7 +25,7 @@ x = 0:dt:T_total;
 % y3= tan(x);
 % y4=1./cos(x);
 
-%% Plot averaved ABR waveforms -- the current standard for visually determining ABR threshold
+%% Plot averaged ABR waveforms -- the current standard for visually determining ABR threshold
 
 RMS2_averaged_trace = zeros(A_length, 1);
 figure
@@ -53,6 +53,68 @@ same_yaxes(AxesHandles_1)
 % subplot(2,2,4)       
 % plot(x,y4)
 % title('Subplot 4')
+
+%% 5-13-19: Plot averaged ABR waveforms on a relative scale -- "e.g. individual wave was normalized to the maximal wave within each ABR
+% pattern", per Zhou et al. 2006 "Auditory brainstem responses in 10 inbred
+% strains of mice" 
+
+figure
+AxesHandles_1 = zeros(A_length, 1);
+for i = 1:A_length
+    y = mean(X_csv{i}, 2);
+    
+    AxesHandles_1(i) = subplot(ceil(A_length/2),2,i);
+    plot(x, y/max(abs(y)))
+    title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('Relative voltage (a.u.)')
+end
+same_yaxes(AxesHandles_1)
+    
+%% 5-9-19: Plot averaged ABR RMS vs dB level (to see old threshold of 3*RMS no signal)
+RMS_averaged_trace = sqrt(RMS2_averaged_trace);
+figure('DefaultAxesFontSize', 20)
+yyy = RMS_averaged_trace*10^6; % in case want to change V -> uV y-axis units
+thresh_1 = 3*yyy(1);
+plot(A_csv, yyy, '-o')
+my_yline = yline(thresh_1, '--', ['THRESHOLD = 3(RMS)_{0} = ', num2str(thresh_1), '\muV']);
+title(['RMS of averaged ABR trace'], 'FontSize', 32)
+xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+ylabel('RMS (\muV)', 'FontSize', 32)
+set(my_yline, 'FontSize', 18)
+% set(gca,'FontSize',20)
+
+% Identify threshold and mark vertical line
+isrms_above = yyy > thresh_1;
+if any(yyy)
+    Athresh_ind = find(isrms_above, 1) - 1;
+    A_thresh = A_csv(Athresh_ind);
+    
+    % Linear interpolate to identify exact amplitude corresponding to
+    % 3*RMS_0
+    dify = yyy(Athresh_ind + 1) - yyy(Athresh_ind);
+    difx = A_csv(Athresh_ind + 1) - A_thresh; % should be 5 dB or whatever amplitude spacing is
+    mslope = dify/difx;
+    deltay = thresh_1 - yyy(Athresh_ind);
+    A_tresh_exact = A_thresh + deltay/mslope;
+    
+    % Draw vertical line at exact threshold amplitude 
+    hold on
+    line([A_tresh_exact A_tresh_exact], [0, thresh_1], 'LineWidth', 1, 'Color', 'k', 'LineStyle', '--'); % vertical line at exact threshold
+    set(gca, 'XTick', sort([round(A_tresh_exact, 2), get(gca, 'XTick')]));
+    hold off
+else
+    disp('Warning: No ABR RMS threshold!')
+end
+
+
+% Also plot 2*RMS_0 threshold line
+
+
+% % Label RMS point before threshold
+% x = [A_csv(9) A_csv(9)+5];
+% y = [yyy(9) yyy(9)-0.05];
+% annotation('textarrow',x,y,'String',['(', num2str(A_csv(9)), ',', num2str(3*yyy(1)), ')'])
 
 %% Subplots for individual trace ABRs
 figure % plot 10 x 5 subplots. A_length = 10
