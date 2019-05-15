@@ -75,9 +75,9 @@ same_yaxes(AxesHandles_1)
 RMS_averaged_trace = sqrt(RMS2_averaged_trace);
 figure('DefaultAxesFontSize', 20)
 yyy = RMS_averaged_trace*10^6; % in case want to change V -> uV y-axis units
-thresh_1 = 3*yyy(1);
+thresh_1 = 2*yyy(1);
 plot(A_csv, yyy, '-o')
-my_yline = yline(thresh_1, '--', ['THRESHOLD = 3(RMS)_{0} = ', num2str(thresh_1), '\muV']);
+my_yline = yline(thresh_1, '--', ['THRESHOLD = 2(RMS)_{0} = ', num2str(thresh_1), '\muV']);
 title(['RMS of averaged ABR trace'], 'FontSize', 32)
 xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
 ylabel('RMS (\muV)', 'FontSize', 32)
@@ -101,7 +101,7 @@ if any(yyy)
     % Draw vertical line at exact threshold amplitude 
     hold on
     line([A_tresh_exact A_tresh_exact], [0, thresh_1], 'LineWidth', 1, 'Color', 'k', 'LineStyle', '--'); % vertical line at exact threshold
-    set(gca, 'XTick', sort([round(A_tresh_exact, 2), get(gca, 'XTick')]));
+    set(gca, 'XTick', sort([round(A_tresh_exact, 0), get(gca, 'XTick')]));
     hold off
 else
     disp('Warning: No ABR RMS threshold!')
