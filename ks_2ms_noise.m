@@ -5,7 +5,7 @@
 % Run this script after running 'import_ABRcsv_folder.m'
 %
 % Dependencies: same_yaxes.m
-% Last edit: 4/22/2019
+% Last edit: 5/17/2019 - Analyze noise distribution 
 %
 % Author: George Liu
 
@@ -40,6 +40,61 @@ ylabel('P-value KS(Pn, Pn-1)', 'FontSize', 32)
 title('Noise KS p-value, 95 dB SPL', 'FontSize', 32)
 % title('Noise KS p-value, 0 dB SPL', 'FontSize', 32)
 
+%% 5-16-19: Calculate K-S statistic distribution histogram, for aggregated across all dB levels (2 ms noise inter-repetition comparisons)
+allKS_stat = [];
+all_p = [];
+% Iterate over stimulus levels (dB SPL)
+for i = 1:A_length
+    this_X = X_csv{i};
+    this_noise = this_X(1:t_endnoise, :); % 2ms noise at beginning
+%     this_m = size(this_X, 2);
+    
+%     KS_thisdb = zeros(mm-1, 1);
+%     p_plot = zeros(mm-1, 1);
+    % Iterate over consecutive single trace pairs
+    for j = 2:mm
+    x1 = this_noise(:, ii-1);
+    x2 = this_noise(:, ii);
+    [~, this_p, this_ks2stat] = kstest2(x1, x2);
+    allKS_stat = [allKS_stat; this_ks2stat];
+    all_p = [all_p; this_p];
+    end
+end
+
+% Calculate KS stat corresponding to critical p value
+P_CRIT = 0.01;
+[~, ind] = min(abs(all_p - P_CRIT));
+ks_crit = allKS_stat(ind);
+% num_below = 
+
+% Plot histogram of KS test statistics
+figure('DefaultAxesFontSize', 20)
+histogram(allKS_stat, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'FaceColor', 'r')
+ylabel('Probability')
+xlabel('KS2 test stat')
+title(['Histogram of Kolmogorov-Smirnov Statistic at all dB, p_{crit}=', num2str(P_CRIT), ' Kstat_{crit}=', num2str(ks_crit)])
+
+% critical p-value / KS stat as blue line
+hold on
+line([ks_crit ks_crit], ylim, 'LineWidth', 1, 'Color', 'b'); % vertical line for p_crit
+% set(gca, 'XTick', sort([round(ks_crit, 1), get(gca, 'XTick')]));
+hold off
+
+%% 5-17-19: Measure correlation time
+this_X = X_csv{1};
+cc_time = zeros(t_endnoise, 1);
+TIME_PT = 200;
+for i = 1:t_endnoise
+    cc = corrcoef(this_X(TIME_PT,:), this_X(i, :));
+    cc_time(i) = cc(1,2);
+end
+
+figure('DefaultAxesFontSize', 20)
+plot(x(1:t_endnoise)-TIME_PT*dt, cc_time)
+xlabel('\Deltat (ms)', 'FontSize', 32)
+ylabel('Correlation coefficient', 'FontSize', 32)
+title(['Corrcoef of noise for single points \Deltat apart, ', num2str(A_csv(1)), ' dB SPL'], 'FontSize', 32)
+
 %% Subplots for individual trace ABRs
 figure % plot 10 x 5 subplots. A_length = 10
 num_examples = 5;
@@ -71,6 +126,7 @@ t_endnoise = find(x==2);
 % TIME = 0.04;
 % t_TIME = find(x==4);
 
+num_timepts = size(X_csv{end}, 1) - size(noise_only, 1);
 prob_hit_all = zeros(num_timepts, 20);
 for aa = 1:20
     disp(['Working on ', num2str(aa), ' out of ', num2str(20), '...'])

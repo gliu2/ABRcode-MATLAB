@@ -1,4 +1,9 @@
 function [P,T] = PTDetect(x,E)
+% Usage [P,T] = PTDetect(x,E), in which E is a threshold, x is a vector of data, P is the list of peaks, and T is the list of troughs.
+% Based on Jacobson 2001 "Auto-threshold Peak Detection in Physiological
+% Signals ", Papers from 23rd Annual International Conference of the IEEE Engineering in Medicine and Biology Society, October
+% 25-28, 2001, held in Istanbul, Turkey. See also ADM001351 for entire conference on cd-rom., The original document
+% contains color images.
 P = [];
 T = [];
 a = 1;
