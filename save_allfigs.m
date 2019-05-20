@@ -49,3 +49,14 @@ for iFig = 1:length(FigList)
   FigName   = FigNames{iFig};
   saveas(FigHandle, fullfile(FolderName, [FigName, '.png']));    % PNG file
 end
+
+%% 4-29-2019 Save figures using plot titles as figure file names
+% FolderName = 'C:\Users\CTLab\Documents\George\Arri_analysis_4-29-19';   % Your destination folder
+FolderName = 'C:\Users\CTLab\Documents\George\Arri_analysis_4-29-19_4-28data';
+FigList = findobj(allchild(0), 'flat', 'Type', 'figure');
+for iFig = 2:length(FigList)
+  disp(['Saving figure ', num2str(iFig), ' out of ', num2str(length(FigList)), '...'])
+  FigHandle = FigList(iFig);
+  FigName   = FigHandle.Children.Title.String;
+  saveas(FigHandle, fullfile(FolderName, [FigName, '.png']));    % PNG file
+end
