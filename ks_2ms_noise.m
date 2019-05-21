@@ -95,6 +95,90 @@ xlabel('\Deltat (ms)', 'FontSize', 32)
 ylabel('Correlation coefficient', 'FontSize', 32)
 title(['Corrcoef of noise for single points \Deltat apart, ', num2str(A_csv(1)), ' dB SPL'], 'FontSize', 32)
 
+%% 5-19-19: Measure autocorrelation of noise traces at 0 dB level
+this_m = m(1); % 0 dB single traces
+% this_X = X_csv{1}; % SAMPLES x m_traces matrix
+this_X = X_csv{1}(1:t_endnoise, :); % NOISE_SAMPLES x m_traces matrix
+this_acf = zeros(2*size(this_X,1)-1, this_m);
+for i = 1:this_m
+    trace_i = this_X(:, i);
+    [this_acf(:,i), lags] = xcorr(trace_i); % autocorrelation
+end
+
+% Plot random single-trace autocorrelation functions
+NUM_SUBPLOT = 6;
+rnd_traces = sort(randperm(this_m, NUM_SUBPLOT^2));
+% rnd_traces = ceil(rand(NUM_SUBPLOT)*this_m);
+% rnd_traces = reshape(sort(rnd_traces(:)), NUM_SUBPLOT, NUM_SUBPLOT)'; % sort in increasing order, row by row
+figure
+AxesHandles_1 = zeros(NUM_SUBPLOT^2, 1);
+count = 0;
+for i = 1:NUM_SUBPLOT
+    for j = 1:NUM_SUBPLOT
+        count = count + 1;
+        this_trace = rnd_traces(count);
+        AxesHandles_1(count) = subplot(NUM_SUBPLOT, NUM_SUBPLOT, count);
+        plot(lags*dt, this_acf(:, this_trace))
+        xlabel('Lag (ms)', 'FontSize', 12)
+        ylabel('ACF (V^2)', 'FontSize', 12)
+        title(['Trace ', num2str(this_trace), ', ', num2str(A_csv(1)), ' dB'])
+    end
+end
+same_yaxes(AxesHandles_1)
+
+% Plot average ACF
+figure('DefaultAxesFontSize', 20)
+plot(lags*dt, mean(this_acf,2))
+xlabel('Lag (ms)', 'FontSize', 32)
+ylabel('ACF ave (V^2)', 'FontSize', 32)
+title(['Autocorrelation average, ', num2str(A_csv(1)), ' dB SPL'], 'FontSize', 32)
+
+% Match y-axes of single and average ACF plots
+allYLim = get(AxesHandles_1, {'YLim'});
+allYLim = cat(2, allYLim{:});
+ylim([min(allYLim), max(allYLim)]);
+
+%% 5-19-19: PSD (periodogram) of single and average ABR traces at 0 dB
+this_m = m(1); % 0 dB single traces
+this_X = X_csv{1}; % SAMPLES x m_traces matrix
+% this_X = X_csv{1}(1:t_endnoise, :); % NOISE_SAMPLES x m_traces matrix
+nfft = length(x);
+[pxx, f] = periodogram(this_X, [], nfft, SAMPLING_RATE); % pxx - [] x m_traces matrix, f -  [0,fs/2] (Hz)
+
+% Plot random single-trace autocorrelation functions
+NUM_SUBPLOT = 6;
+rnd_traces = sort(randperm(this_m, NUM_SUBPLOT^2));
+figure
+AxesHandles_1 = zeros(NUM_SUBPLOT^2, 1);
+count = 0;
+for i = 1:NUM_SUBPLOT
+    for j = 1:NUM_SUBPLOT
+        count = count + 1;
+        this_trace = rnd_traces(count);
+        AxesHandles_1(count) = subplot(NUM_SUBPLOT, NUM_SUBPLOT, count);
+        plot(f, pxx(:, this_trace))
+        xlabel('Freq (Hz)', 'FontSize', 12)
+        ylabel('PSD (V^2 Hz^{-1})', 'FontSize', 12)
+        title(['Trace ', num2str(this_trace), ', ', num2str(A_csv(1)), ' dB'])
+        xlim([0, 5000])
+    end
+end
+same_yaxes(AxesHandles_1)
+
+% Plot average ACF
+figure('DefaultAxesFontSize', 20)
+errorbar(f, mean(pxx, 2), std(pxx, 0, 2)/sqrt(this_m))
+% plot(f, mean(pxx,2))
+xlabel('Freq (Hz)', 'FontSize', 32)
+ylabel('PSD (V^2 Hz^{-1})', 'FontSize', 32)
+title(['PSD average, ', num2str(A_csv(1)), ' dB SPL'], 'FontSize', 32)
+xlim([0, 5000])
+
+% Match y-axes of single and average ACF plots
+allYLim = get(AxesHandles_1, {'YLim'});
+allYLim = cat(2, allYLim{:});
+ylim([min(allYLim), max(allYLim)]);
+
 %% Subplots for individual trace ABRs
 figure % plot 10 x 5 subplots. A_length = 10
 num_examples = 5;
