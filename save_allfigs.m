@@ -10,7 +10,8 @@
 %
 % Author: George Liu
 
-FolderName = '/Users/georgeliu/Documents/George/KS_analyzeNoise_4-22-19';   % Your destination folder
+% FolderName = '/Users/georgeliu/Documents/George/KS_analyzeNoise_4-22-19';   % Your destination folder
+FolderName = uigetdir;   % Your destination folder
 FigList = findobj(allchild(0), 'flat', 'Type', 'figure');
 
 %% Save hit probs 4-18-19
@@ -19,6 +20,17 @@ for iFig = 2:length(FigList)
 %   FigName   = get(FigHandle, 'Name');  % Adjust the FigName to your needs.
   FigName   = ['hitprob_', num2str(A_csv(22-iFig)), 'dB_alltimes_fp05_singletail_allnoisedist'];  % Adjust the FigName to your needs.
 %   savefig(FigHandle, fullfile(FolderName, [FigName, '.png']));    %<---- 'Brackets'
+  saveas(FigHandle, fullfile(FolderName, [FigName, '.png']));    % PNG file
+end
+
+%% Save hit probs 5-22-19 (from ks_2ms_noise.m cell titled, "ALTERNATIVE 4-18-19: noise dist over all traces (Find threshold versus time based on single-point analysis)")
+for iFig = 2:length(FigList)
+  FigHandle = FigList(iFig);
+%   FigName   = get(FigHandle, 'Name');  % Adjust the FigName to your needs.
+  FigName   = ['hitprob_', num2str(A_csv(22-iFig)), 'dB_alltimes_fp05_singletail_allnoisedist'];  % Adjust the FigName to your needs.
+%   savefig(FigHandle, fullfile(FolderName, [FigName, '.png']));    %<---- 'Brackets'
+  saveas(FigHandle, fullfile(FolderName, [FigName, '.fig']));    % FIG file
+  saveas(FigHandle, fullfile(FolderName, [FigName, '.eps']));    % EPS file
   saveas(FigHandle, fullfile(FolderName, [FigName, '.png']));    % PNG file
 end
 
