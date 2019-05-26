@@ -348,7 +348,7 @@ title(['Peak lags with fit for ', num2str(A_csv(midA_ind)), ' dB peaks and above
 % THEN RUN SIGN RANK AND K-S TESTS USING CELL WAY ABOVE
 this_lag = avg_lag_xcovExtrap; % 5-25-19 added to modularize lag calculation
 
-dist_innerprod = analyze_innerprod_ABR(X_csv, this_lag, 'coeff');
+dist_innerprod = analyze_innerprod_ABR(X_csv, round(this_lag/dt), 'coeff');
 % % Calculate signal basis vector from normalized max averaged ABR trace
 % max_averagedABR_trace = mean(X_csv{end}, 2); % SAMPLES x 1 vector
 % magn = dot(max_averagedABR_trace, max_averagedABR_trace);
