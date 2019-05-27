@@ -7,7 +7,7 @@
 % single-trace ABR data.
 %
 % Dependencies: analyze_v2_ABR.m, same_yaxes.m, PTDetect.m 
-% Last edit: 5/25/2019
+% Last edit: 5/26/2019
 %
 % Author: George Liu
 
@@ -65,11 +65,11 @@ for i = 1:A_length
 end
 same_yaxes(AxesHandles_1)
     
-%% 5-9-19: Plot averaged ABR RMS vs dB level (to see old threshold of 3*RMS no signal)
+%% 5-9-19: Threshold method 1: Plot averaged ABR RMS vs dB level (to see old threshold of 3*RMS no signal)
 RMS_averaged_trace = sqrt(RMS2_averaged_trace);
 figure('DefaultAxesFontSize', 20)
 y_uV = RMS_averaged_trace*10^6; % in case want to change V -> uV y-axis units
-NUM_STD_ABOVENOISE = 3;
+NUM_STD_ABOVENOISE = 2;
 thresh_1 = NUM_STD_ABOVENOISE*y_uV(1);
 plot(A_csv, y_uV, '-o')
 my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0} = ', num2str(thresh_1), '\muV']);
@@ -169,18 +169,19 @@ for i = 1:A_length
     end
     
     % Find maximum peak-to-peak amplitude
-    max_p2p(i) = max([peak2peak_pt; peak2peak_tp]);
+    [max_p2p(i), ind] = max([peak2peak_pt; peak2peak_tp]);
+    disp(ind)
 end
 
 %% 5-25-19: Plot maximum peak-to-peak amplitude vs dB level
 figure('DefaultAxesFontSize', 20)
 RMS_averaged_trace_uV = RMS_averaged_trace*10^6; % change standard deviation (RMS) units V -> uV y-axis units
 y_uV = max_p2p*10^6; % in case want to change V -> uV y-axis units
-NUM_STD_ABOVENOISE = 4; % 4 or 5
+NUM_STD_ABOVENOISE = 5; % 4 or 5
 thresh_up = NUM_STD_ABOVENOISE*RMS_averaged_trace_uV(1);
 thresh_1 = thresh_up + y_uV(1);
 plot(A_csv, y_uV, '-o')
-my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0} + V_0^{p-p} = ', num2str(thresh_up), ' \muV + ', num2str(y_uV(1)), ' \muV = ', num2str(thresh_1), ' \muV']);
+my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0}+V_0^{p-p} = (', num2str(thresh_up, 3), ' + ', num2str(y_uV(1), 3), ')\muV = ', num2str(thresh_1), ' \muV']);
 title(['Peak-to-peak amplitude of average ABR'], 'FontSize', 32)
 xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
 ylabel('Max peak-to-peak amplitude (\muV)', 'FontSize', 32)
@@ -209,3 +210,35 @@ if any(y_uV)
 else
     disp('Warning: No ABR RMS threshold!')
 end
+
+%% 5-26-19: Fsp method Elberling 1984
+% Fsp = N*VAR(X¯)/VAR(SP), then use F distribution with parameters DOF v2 =
+% N-1, v1 = 5 (Based on Elberling 1984).
+TIME_PT_IND = round(SAMPLES/2);
+p_fsp = zeros(A_length, 1);
+for i = 1:A_length
+    this_X = X_csv{i}; % SAMPLES x this_m 
+    this_Xave = mean(this_X, 2); 
+    var_xbar = var(this_Xave);
+    var_mp = var(this_X, 0, 2); % can average multiple points!
+    var_sp = var_mp(TIME_PT_IND);
+    N = size(this_X, 2);
+
+    Fsp = N*var_xbar/var_sp;
+    v1 = 5;
+    v2 = N-1;
+    p_fsp(i) = fcdf(Fsp, v1, v2, 'upper');
+end
+
+figure('DefaultAxesFontSize', 20)
+plot(A_csv, p_fsp, '-o')
+title(['Fsp F-dist CDF vs dB level'], 'FontSize', 32)
+xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+ylabel('F-dist CDF (p-val)', 'FontSize', 32)
+set(my_yline, 'FontSize', 18)
+
+% CUSTOM add coordinate of threshold point
+THRESH_INDEX = 6; % index of A_csv value that yields p_val < 0.05; from looking at plot
+x_text = A_csv(THRESH_INDEX);
+y_text = p_fsp(THRESH_INDEX);
+text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])

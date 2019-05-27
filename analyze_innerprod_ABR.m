@@ -1,7 +1,7 @@
 %% analyze_innerprod_ABR.m
 % 
-% Apply inner product-sign rank method to ABR data. Returns p-value per stimulus level to
-% estimate ABR threshold.
+% Return inner product distributions of single traces with average trace 
+% ``template" at max dB in ABR data. 
 %
 % Assumptions:
 % Dataset is assumed to contain (m_traces) single-trace ABR measurements 
@@ -35,13 +35,17 @@
 %
 % Author: George Liu
 
-function dist_innerprod = analyze_innerprod_ABR(X_csv, mylags, scaleopt)
-A_length = length(X_csv); % # of stimulus dB levels
+function dist_innerprod = analyze_innerprod_ABR(X_csv, mylags, scaleopt, varargin)
 
 % Signal basis vector: averaged ABR trace at max dB level (not normalized)
-signal_basis = mean(X_csv{end}, 2); % SAMPLES x 1 vector
+if nargin == 3
+    signal_basis = mean(X_csv{end}, 2); % SAMPLES x 1 vector
+elseif nargin == 4
+    signal_basis = varargin{1}; 
+end
 
 % Compute distribution of inner products (single traces) at each dB level
+A_length = length(X_csv); % # of stimulus dB levels
 dist_innerprod = cell(A_length, 1);
 for i = 1:A_length
     thisX = X_csv{i}; % SAMPLES x m_traces matrix

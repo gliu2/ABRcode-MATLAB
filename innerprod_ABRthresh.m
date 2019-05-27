@@ -9,8 +9,11 @@
 % Run this script after "import_ABRcsv_folder.m", which loads Noor's
 % single-trace ABR data.
 %
-% Dependencies: same_yaxes.m, same_xaxes.m, PTDetect.m
-% Last edit: 5/25/2019
+% Dependencies: same_yaxes.m, same_xaxes.m, PTDetect.m,
+%               analyze_innerprod_ABR.m, innerprod2pval.m, visualize_innerprod_stats.m
+%
+% Last edit: 5/26/2019 - modularized calculating innerprods, pvals,
+%                        visualize stats plots
 %
 % Author: George Liu
 
@@ -78,118 +81,12 @@ same_xaxes(axesHandle)
 
 %% Calculate p-value for each dB SPL level, using Wilcoxin sign-rank test or K-S test
 % compared with 0 dB SPL inner product distribution
-zero_dB_innerdist = dist_innerprod{1};
-p_val = zeros(A_length, 1);
-signrank_stat = zeros(A_length, 1);
-p_val_KS = zeros(A_length, 1);
-ks_score = zeros(A_length,1);
-for i = 1:A_length
-    [p_val(i), ~, stats] = signrank(dist_innerprod{i}, zero_dB_innerdist); % Wilcoxin sign-rank test, two-sided 
-    signrank_stat(i) = stats.signedrank;
-    [~, p_val_KS(i), ks_score(i)] = kstest2(dist_innerprod{i}, zero_dB_innerdist); % Two-sample Kolmogorov-Smirnov test (unequal cdf's)
-end
 
-% 5-25-19: Plot p-value and stats for Wilcoxin sign rank and K-S tests as subplots on 1 figure
-figure('DefaultAxesFontSize', 20)
-% Plot p-value vs dB SPL level: Wilcoxin sign rank test
-subplot(2,2,1)
-plot(A_csv, p_val, '-o')
-title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('p-value')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = p_val(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
+[p_val, signrank_stat, p_val_KS, ks_score] = innerprod2pval(dist_innerprod); % 5-26-2019 implementation
+visualize_innerprod_stats(p_val, signrank_stat, p_val_KS, ks_score, A_csv)
 
-% Plot Wilcoxign sign rank z-stat vs dB SPL level: Wilcoxin sign rank test
-subplot(2,2,2)
-plot(A_csv, signrank_stat, '-o')
-title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('Sign rank test statistic')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = signrank_stat(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
+%% 5-25-19: Find latency lags of averaged ABR traces using cross-covariance with coeff normalization
 
-% Plot p-value vs dB SPL level: K-S test
-subplot(2,2,3)
-plot(A_csv, p_val_KS, '-o')
-title(['Kolmogorov-Smirnov test for inner products vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('p-value')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = p_val_KS(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-% Plot KS_score vs dB SPL level: K-S test
-subplot(2,2,4)
-plot(A_csv, ks_score, '-o')
-title(['Kolmogorov-Smirnov test for inner products vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('K-S score')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = ks_score(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-
-% % Plot p-value vs dB SPL level: Wilcoxin sign rank test (4 figures)
-% figure('DefaultAxesFontSize', 20)
-% plot(A_csv, p_val, '-o')
-% title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
-% xlabel('Amplitude (dB SPL)')
-% ylabel('p-value')  
-% % CUSTOM add coordinate of threshold point
-% THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-% x_text = A_csv(THRESH_INDEX);
-% y_text = p_val(THRESH_INDEX);
-% text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-% 
-% % Plot Wilcoxign sign rank z-stat vs dB SPL level: Wilcoxin sign rank test
-% figure('DefaultAxesFontSize', 20)
-% plot(A_csv, signrank_stat, '-o')
-% title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
-% xlabel('Amplitude (dB SPL)')
-% ylabel('Sign rank test statistic')  
-% % CUSTOM add coordinate of threshold point
-% THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-% x_text = A_csv(THRESH_INDEX);
-% y_text = signrank_stat(THRESH_INDEX);
-% text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-% 
-% % Plot p-value vs dB SPL level: K-S test
-% figure('DefaultAxesFontSize', 20)
-% plot(A_csv, p_val_KS, '-o')
-% title(['Kolmogorov-Smirnov test for inner products vs 0 dB SPL'])
-% xlabel('Amplitude (dB SPL)')
-% ylabel('p-value')  
-% % CUSTOM add coordinate of threshold point
-% THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-% x_text = A_csv(THRESH_INDEX);
-% y_text = p_val_KS(THRESH_INDEX);
-% text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-% 
-% % Plot KS_score vs dB SPL level: K-S test
-% figure('DefaultAxesFontSize', 20)
-% plot(A_csv, ks_score, '-o')
-% title(['Kolmogorov-Smirnov test for inner products vs 0 dB SPL'])
-% xlabel('Amplitude (dB SPL)')
-% ylabel('K-S score')  
-% % CUSTOM add coordinate of threshold point
-% THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-% x_text = A_csv(THRESH_INDEX);
-% y_text = ks_score(THRESH_INDEX);
-% text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-%% 5-15-19: Find latency lags of averaged ABR traces
-% 5-25-19: Updated to xcov (instead of xcorr) with coeff normalization
 % Calculate signal basis vector from normalized max averaged ABR trace
 max_averagedABR_trace = mean(X_csv{end}, 2); % SAMPLES x 1 vector
 magn = sqrt(dot(max_averagedABR_trace, max_averagedABR_trace));
@@ -610,65 +507,9 @@ same_xaxes(axesHandle_2)
 
 %% Calculate p-value for each dB SPL level, using Wilcoxin sign-rank test or K-S test
 % compared with 0 dB SPL cross correlation distribution
-zero_dB_innerdist = dist_crosscor{1};
-p_val = zeros(A_length, 1);
-signrank_stat = zeros(A_length, 1);
-p_val_KS = zeros(A_length, 1);
-ks_score = zeros(A_length,1);
-for i = 1:A_length
-    [p_val(i), ~, stats] = signrank(dist_crosscor{i}, zero_dB_innerdist); % Wilcoxin sign-rank test, two-sided 
-    signrank_stat(i) = stats.signedrank;
-    [~, p_val_KS(i), ks_score(i)] = kstest2(dist_crosscor{i}, zero_dB_innerdist); % Two-sample Kolmogorov-Smirnov test (unequal cdf's)
-end
 
-% Plot p-value vs dB SPL level: Wilcoxin sign rank test
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, p_val, '-o')
-title(['Wilcoxin sign rank for cross correlation maxima vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('p-value')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = p_val(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-% Plot Wilcoxign sign rank z-stat vs dB SPL level: Wilcoxin sign rank test
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, signrank_stat, '-o')
-title(['Wilcoxin sign rank for xcorr maxima vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('Sign rank test statistic')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = signrank_stat(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-% Plot p-value vs dB SPL level: K-S test
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, p_val_KS, '-o')
-title(['Kolmogorov-Smirnov test for xcorr maxima vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('p-value')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = p_val_KS(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-% Plot KS_score vs dB SPL level: K-S test
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, ks_score, '-o')
-title(['Kolmogorov-Smirnov test for xcorr maxima vs 0 dB SPL'])
-xlabel('Amplitude (dB SPL)')
-ylabel('K-S score')  
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = ks_score(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
+[p_val, signrank_stat, p_val_KS, ks_score] = innerprod2pval(dist_crosscor); % 5-26-2019 implementation
+visualize_innerprod_stats(p_val, signrank_stat, p_val_KS, ks_score, A_csv) %Change figure titles to "xcorr maxima"
 
 %% 5-23-19: Find lags of 3 chunks- (1) 2ms (stimulus onset) to 1st trough, (2) max peak, (3) 2nd-3rd trough
 % uses peak detection method (PTDetect.m) on relative scale averaged ABRs
@@ -813,39 +654,10 @@ chunk3 = max_averagedABR_trace;
 chunk3(1:chunk3_start-1) = 0;
 chunk3(chunk3_end+1:end) = 0; 
 
-% Normalize
-magn1 = dot(chunk1, chunk1);
-signal_basis1 = chunk1 / magn1; % SAMPLES x 1 vector
-magn2 = dot(chunk2, chunk2);
-signal_basis2 = chunk2 / magn2; % SAMPLES x 1 vector
-magn3 = dot(chunk3, chunk3);
-signal_basis3 = chunk3 / magn3; % SAMPLES x 1 vector
-
-% Compute distribution of inner products (single traces) at each dB level
-dist_innerprod1 = cell(A_length, 1);
-dist_innerprod2 = cell(A_length, 1);
-dist_innerprod3 = cell(A_length, 1);
-for i = 1:A_length
-    thisX = X_csv{i}; % SAMPLES x m_traces matrix
-    
-    % chunk 1
-    shifted_signalbasis1 = zeros(size(signal_basis1));
-    ind_shift1 = max([round(lefttrough_lags(i)/dt), 0]); % 1st trough lag; lags from peak shifts at all dB level
-    shifted_signalbasis1(1 + ind_shift1:end) = signal_basis1(1:end - ind_shift1);
-    dist_innerprod1{i} = thisX' * shifted_signalbasis1; % m_traces x 1 vector
-    
-    % chunk 2
-    shifted_signalbasis2 = zeros(size(signal_basis2));
-    ind_shift2 = round(maxpeak_lags(i)/dt); % Max peak lags; lags from peak shifts at all dB level
-    shifted_signalbasis2(1 + ind_shift2:end) = signal_basis2(1:end - ind_shift2);
-    dist_innerprod2{i} = thisX' * shifted_signalbasis2; % m_traces x 1 vector
-    
-    % chunk 3
-    shifted_signalbasis3 = zeros(size(signal_basis3));
-    ind_shift3 = max([round(righttrough_lags(i)/dt), 0]); % 2nd trough lag; lags from peak shifts at all dB level
-    shifted_signalbasis3(1 + ind_shift3:end) = signal_basis3(1:end - ind_shift3);
-    dist_innerprod3{i} = thisX' * shifted_signalbasis3; % m_traces x 1 vector
-end
+% Compute distribution of inner products (single traces) at each dB level. % m_traces x 1 vector
+dist_innerprod1 = analyze_innerprod_ABR(X_csv, round(lefttrough_lags/dt), 'coeff', chunk1); % 1st trough lag; lags from peak shifts at all dB level
+dist_innerprod2 = analyze_innerprod_ABR(X_csv, round(maxpeak_lags/dt), 'coeff', chunk2); % Max peak lags; lags from peak shifts at all dB level
+dist_innerprod3 = analyze_innerprod_ABR(X_csv, round(righttrough_lags/dt), 'coeff', chunk3); % 2nd trough lag; lags from peak shifts at all dB level
 
 % Plot averaged ABR trace and distribution of single-trace signal
 % components per dB SPL level
@@ -911,7 +723,7 @@ for i = 1:A_length
     
     % plot mean as blue line
     hold on
-    signal_mean = mean(dist_innerprod1{i});
+    signal_mean = mean(dist_innerprod2{i});
     line([signal_mean signal_mean], ylim, 'LineWidth', 1, 'Color', 'b'); % vertical line for cutoff
     hold off
     
@@ -951,17 +763,7 @@ alldist_innerprod{3} = dist_innerprod3;
 chunk_names = {'Stimulus-1st trough', '1st-2nd trough', '2nd-3rd trough'};
 
 for j = 1:length(alldist_innerprod)
-    dist_innerprod = alldist_innerprod{j};
-    zero_dB_innerdist = dist_innerprod{1};
-    p_val = zeros(A_length, 1);
-    signrank_stat = zeros(A_length, 1);
-    p_val_KS = zeros(A_length, 1);
-    ks_score = zeros(A_length,1);
-    for i = 1:A_length
-        [p_val(i), ~, stats] = signrank(dist_innerprod{i}, zero_dB_innerdist); % Wilcoxin sign-rank test, two-sided 
-        signrank_stat(i) = stats.signedrank;
-        [~, p_val_KS(i), ks_score(i)] = kstest2(dist_innerprod{i}, zero_dB_innerdist); % Two-sample Kolmogorov-Smirnov test (unequal cdf's)
-    end
+    [p_val, signrank_stat, p_val_KS, ks_score] = innerprod2pval(alldist_innerprod{j}); % 5-26-2019 implementation
 
     figure('DefaultAxesFontSize', 20)
     % Plot p-value vs dB SPL level: Wilcoxin sign rank test
