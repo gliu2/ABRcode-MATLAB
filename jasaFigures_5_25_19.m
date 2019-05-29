@@ -21,7 +21,7 @@ x = 0:dt:T_total;
 %% Plot averaged ABR waveforms -- the current standard for visually determining ABR threshold
 
 RMS2_averaged_trace = zeros(A_length, 1);
-figure
+figure('DefaultAxesFontSize', 20)
 AxesHandles_1 = zeros(A_length, 1);
 for i = 1:A_length
     y = mean(X_csv{i}, 2);
@@ -51,7 +51,7 @@ same_yaxes(AxesHandles_1)
 % pattern", per Zhou et al. 2006 "Auditory brainstem responses in 10 inbred
 % strains of mice" 
 
-figure
+figure('DefaultAxesFontSize', 20)
 AxesHandles_1 = zeros(A_length, 1);
 for i = 1:A_length
     y = mean(X_csv{i}, 2);
@@ -69,7 +69,7 @@ same_yaxes(AxesHandles_1)
 RMS_averaged_trace = sqrt(RMS2_averaged_trace);
 figure('DefaultAxesFontSize', 20)
 y_uV = RMS_averaged_trace*10^6; % in case want to change V -> uV y-axis units
-NUM_STD_ABOVENOISE = 2;
+NUM_STD_ABOVENOISE = 3;
 thresh_1 = NUM_STD_ABOVENOISE*y_uV(1);
 plot(A_csv, y_uV, '-o')
 my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0} = ', num2str(thresh_1), '\muV']);
@@ -125,7 +125,7 @@ yrel_cache = cell(A_length, 1);
 peak_cache = cell(A_length, 1);
 trough_cache = cell(A_length, 1);
 
-figure
+figure('DefaultAxesFontSize', 20)
 AxesHandles_1 = zeros(A_length, 1);
 for i = 1:A_length
     y = mean(X_csv{i}, 2); % average ABR; volts (V)
@@ -170,14 +170,14 @@ for i = 1:A_length
     
     % Find maximum peak-to-peak amplitude
     [max_p2p(i), ind] = max([peak2peak_pt; peak2peak_tp]);
-    disp(ind)
+%     disp(ind)
 end
 
 %% 5-25-19: Plot maximum peak-to-peak amplitude vs dB level
 figure('DefaultAxesFontSize', 20)
 RMS_averaged_trace_uV = RMS_averaged_trace*10^6; % change standard deviation (RMS) units V -> uV y-axis units
 y_uV = max_p2p*10^6; % in case want to change V -> uV y-axis units
-NUM_STD_ABOVENOISE = 5; % 4 or 5
+NUM_STD_ABOVENOISE = 4; % 4 or 5
 thresh_up = NUM_STD_ABOVENOISE*RMS_averaged_trace_uV(1);
 thresh_1 = thresh_up + y_uV(1);
 plot(A_csv, y_uV, '-o')
@@ -212,9 +212,10 @@ else
 end
 
 %% 5-26-19: Fsp method Elberling 1984
-% Fsp = N*VAR(X¯)/VAR(SP), then use F distribution with parameters DOF v2 =
-% N-1, v1 = 5 (Based on Elberling 1984).
+% Fsp = N*VAR(X¯)/VAR(SP), then use F distribution with parameters DOF v2 = N-1, v1 = 5. 
+% Based on Elberling and Don, "Quality Estimation of Averaged Auditory Brainstem Responses". Scan Audiol 13:187-197 (1984).
 TIME_PT_IND = round(SAMPLES/2);
+Fsp_cache = zeros(A_length, 1);
 p_fsp = zeros(A_length, 1);
 for i = 1:A_length
     this_X = X_csv{i}; % SAMPLES x this_m 
@@ -228,6 +229,9 @@ for i = 1:A_length
     v1 = 5;
     v2 = N-1;
     p_fsp(i) = fcdf(Fsp, v1, v2, 'upper');
+    
+    % Cache variables
+    Fsp_cache(i) = Fsp;
 end
 
 figure('DefaultAxesFontSize', 20)
@@ -235,10 +239,18 @@ plot(A_csv, p_fsp, '-o')
 title(['Fsp F-dist CDF vs dB level'], 'FontSize', 32)
 xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
 ylabel('F-dist CDF (p-val)', 'FontSize', 32)
-set(my_yline, 'FontSize', 18)
+% set(my_yline, 'FontSize', 18)
 
 % CUSTOM add coordinate of threshold point
 THRESH_INDEX = 6; % index of A_csv value that yields p_val < 0.05; from looking at plot
 x_text = A_csv(THRESH_INDEX);
 y_text = p_fsp(THRESH_INDEX);
 text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
+
+% 5-27-19: Plot Fsp value vs dB
+figure('DefaultAxesFontSize', 20)
+plot(A_csv, Fsp_cache, '-o')
+title(['Fsp vs dB level'], 'FontSize', 32)
+xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+ylabel('Fsp', 'FontSize', 32)
+% set(my_yline, 'FontSize', 18)

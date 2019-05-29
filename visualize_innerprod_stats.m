@@ -33,7 +33,7 @@ figure('DefaultAxesFontSize', 20)
 % Plot p-value vs dB SPL level: Wilcoxin sign rank test
 subplot(2,2,1)
 plot(A_csv, p_val, '-o')
-title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
+title(['Wilcoxin rank sum for inner products vs 0 dB SPL'])
 xlabel('Amplitude (dB SPL)')
 ylabel('p-value')  
 % CUSTOM add coordinate of threshold point
@@ -44,9 +44,9 @@ text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
 % Plot Wilcoxign sign rank z-stat vs dB SPL level: Wilcoxin sign rank test
 subplot(2,2,2)
 plot(A_csv, signrank_stat, '-o')
-title(['Wilcoxin sign rank for inner products vs 0 dB SPL'])
+title(['Wilcoxin rank sum for inner products vs 0 dB SPL'])
 xlabel('Amplitude (dB SPL)')
-ylabel('Sign rank test statistic')  
+ylabel('Rank sum test statistic')  
 % CUSTOM add coordinate of threshold point
 THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
 x_text = A_csv(THRESH_INDEX);

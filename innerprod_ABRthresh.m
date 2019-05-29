@@ -132,7 +132,7 @@ same_yaxes(AxesHandles_1)
     
 % Extrapolate starting from lowest dB where max cross-covariance is > 0.50
 % Find lowest dB
-XCOV_THRESH_LAG = 0.45; % for coeff normalized cross-covariance
+XCOV_THRESH_LAG = 0.5; % for coeff normalized cross-covariance
 [row, col] = find(maxr_cache > XCOV_THRESH_LAG);
 ind_uselag = min(row);
 
@@ -144,6 +144,8 @@ hold on
 plot(A_csv(1:length(avg_lag_extrap)), avg_lag_extrap, 'o--g')
 title(['Cross-covariance lags, max(xcov)>', num2str(XCOV_THRESH_LAG)])
 hold off
+
+%TODO 5-27-19: Ensure that extrapolated lags have ceiling of max possible lag
 
 % Plot maximum cross-covariance versus dB level
 figure('DefaultAxesFontSize', 20)
@@ -243,7 +245,7 @@ title(['Peak lags with fit for ', num2str(A_csv(midA_ind)), ' dB peaks and above
 % 5-25-19 added to modularize lag calculation
 % 5-16-19: latencies calculated using peak-lag method above
 % THEN RUN SIGN RANK AND K-S TESTS USING CELL WAY ABOVE
-this_lag = avg_lag_xcovExtrap; % 5-25-19 added to modularize lag calculation
+this_lag = avg_lag_xcovExtrap; % 5-25-19 added to modularize lag calculation; this_lag units of ms
 
 dist_innerprod = analyze_innerprod_ABR(X_csv, round(this_lag/dt), 'coeff');
 % % Calculate signal basis vector from normalized max averaged ABR trace
@@ -326,6 +328,31 @@ same_yaxes(AxesHandles_4)
 same_yaxes(axesHandle)
 same_xaxes(axesHandle)
 
+
+
+%% 5-27-19: Check if p-val estimates for lag-inner product method are robust to 0 dB traces random lag
+m0_traces = size(X_csv{1}, 2);
+lag0 = -(m0_traces-1):(m0_traces-1); % all possible lags for lag0; index, not ms
+orig_lags = this_lag;
+pval_wsr_all = zeros(A_length, length(lag0));
+stat_wsr_all = zeros(A_length, length(lag0));
+pval_ks_all = zeros(A_length, length(lag0));
+stat_ks_all = zeros(A_length, length(lag0));
+
+for i = 1:length(lag0)
+    disp(['Working on ', num2str(i), ' out of ', num2str(length(lag0)), '....'])
+    lag_i = round(orig_lags/dt);
+    lag_i(1) = lag0(i); % test 0 dB lag
+    dist_innerprod_i = analyze_innerprod_ABR(X_csv, lag_i, 'coeff');
+    [pval_wsr_all(:, i), stat_wsr_all(:, i), pval_ks_all(:, i), stat_ks_all(:, i)] = innerprod2pval(dist_innerprod_i); 
+end
+    
+% Plot p-vals
+figure('DefaultAxesFontSize', 20)
+figure, plot(A_csv, pval_wsr_all)
+xlabel('Stimulus level (dB)')
+ylabel('P-val')
+title('Wilcoxin sign rank test, 0 dB lag 0 to +/-2.56 ms')
 
 %% 5-17-19: Chunk inner product: histograms of Inner products like above, but use trough-trough chunk around max peak to do lag-inner product
 % 5-22-19: Make chunk from t=0 to trough after peak
