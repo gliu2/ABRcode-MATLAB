@@ -13,7 +13,7 @@
 %            Each cell entry X{i} gives matrix of size (SAMPLES, m_traces), 
 %            where columns are individual trace data.
 %
-%        mylags - shifts (index, a.u.) to calculate inner products, accounting for 
+%        mylags - shifts (units index, a.u.) to calculate inner products, accounting for 
 %               decreasing wave latencies at higher dB levels. Time-shifts 
 %               of single traces are relative to max dB average ABR trace.
 %               MUST BE VECTOR OF INTEGERS.
@@ -41,7 +41,7 @@ function dist_innerprod = analyze_innerprod_ABR(X_csv, mylags, scaleopt, varargi
 if nargin == 3
     signal_basis = mean(X_csv{end}, 2); % SAMPLES x 1 vector
 elseif nargin == 4
-    signal_basis = varargin{1}; 
+    signal_basis = varargin{1}; % e.g. for chunk signal bases
 end
 
 % Compute distribution of inner products (single traces) at each dB level

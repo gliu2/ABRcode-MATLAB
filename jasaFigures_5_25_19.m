@@ -254,3 +254,86 @@ title(['Fsp vs dB level'], 'FontSize', 32)
 xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
 ylabel('Fsp', 'FontSize', 32)
 % set(my_yline, 'FontSize', 18)
+
+%% 5-29-19: Bootstrap statistics for inner product and other methods of calculating threshold
+
+f = @analyze_innerprod_ABR;
+g = @innerprod2pval;
+h = @lags_xcov;
+innerprod_sumrank = @(x) g(f(x, round(h(x, dt, 0.50, A_csv)/dt), 'coeff'));
+
+min_traces = min(m);
+
+nboot = 10; % # boot strap samples to estimate threshold and std threshold
+% mboot = 514; % # single traces (samples) per dB level
+mboot = [50, 100, 200, 400]; % # single traces (samples) per dB level
+P_CRIT = 0.05; % critical p-value for determining threshold from p-values returned by inner product-rank sum test
+
+num_samplesizes = length(mboot);
+% Iterate over sample sizes
+th_ranksum_mean = zeros(num_samplesizes, 1);
+th_ranksum_std = zeros(num_samplesizes, 1);
+for k = 1:num_samplesizes
+    disp(['Working on ', num2str(k), '-th sample size ', num2str(mboot(k)), ' out of ', num2str(mboot(end)), '...'])
+    pval_sumrank = zeros(A_length, nboot);
+    thresh_ranksum = zeros(nboot, 1);
+    
+    % Create ensemble of bootstrapped samples for given sample size
+    for i = 1:nboot
+
+        % Creat n-th bootstrapped dataset with mboot single traces
+        bootX = cell(A_length, 1);
+        for j=1:A_length
+            ix = ceil(min_traces * rand(1, mboot(k))); % with replacement
+    %         ix = randsample(min_traces, mboot); % without replacement
+            bootX{j} = X_csv{j}(:, ix);
+        end
+
+        % Get threshold for bootstrapped sample
+
+        % inner product rank sum method
+        pval_sumrank(:, i) = innerprod_sumrank(bootX); % A_length x 1 vector of p-values for each dB level inner product-sum rank test
+        [~, ind] = max(A_csv(pval_sumrank(:, i)>P_CRIT)); % level just below threshold
+        thresh_ranksum(i) = A_csv(ind + 1); % threshold level
+        disp(thresh_ranksum(i))
+
+    end
+
+    % save mean and std of threshold - rank sum method
+    th_ranksum_mean(k) = mean(thresh_ranksum);
+    th_ranksum_std(k) = std(thresh_ranksum);
+end
+
+%% Visualize FFT single-sided power spectra
+figure('DefaultAxesFontSize', 16)
+L = length(x);
+axesHandles1 = zeros(A_length, 1);
+axesHandles2 = zeros(A_length, 1);
+for i = 1:A_length
+    y_ave = mean(X_csv{i}, 2);
+    axesHandles1(i) = subplot(A_length, 2, (i-1)*2+1);
+    plot(x, y_ave)
+    xlabel('Time (ms)')
+    ylabel('Volt (V)')
+    title(['Amplitude ', num2str(A_csv(i)), ' dB SPL'])
+    
+%     % Compute the Fourier transform of the signal.
+%     y_ave_fft = fft(y_ave);
+% 
+%     % Compute the two-sided spectrum P2. Then compute the single-sided spectrum P1 based on P2 and the even-valued signal length L.
+%     P2 = abs(y_ave_fft/L);
+%     P1 = P2(1:L/2+1);
+%     P1(2:end-1) = 2*P1(2:end-1);
+% 
+%     % Define the frequency domain f and plot the single-sided amplitude spectrum P1. On average, longer signals produce better frequency approximations.
+%     f = SAMPLING_RATE*(0:(L/2))/L;
+    [f, P1] = fft_p1(y_ave, SAMPLING_RATE);
+    axesHandles2(i) = subplot(A_length, 2, (i-1)*2+2);  
+    plot(f,P1) 
+    title(['Single-Sided Amplitude Spectrum, ', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('f (Hz)')
+    ylabel('|P1(f)|')
+%     xlim([0, 5000])
+end
+same_yaxes(axesHandles1)
+same_yaxes(axesHandles2)
