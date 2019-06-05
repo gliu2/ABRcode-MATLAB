@@ -330,29 +330,29 @@ same_xaxes(axesHandle)
 
 
 
-%% 5-27-19: Check if p-val estimates for lag-inner product method are robust to 0 dB traces random lag
-m0_traces = size(X_csv{1}, 2);
-lag0 = -(m0_traces-1):(m0_traces-1); % all possible lags for lag0; index, not ms
-orig_lags = this_lag;
-pval_wsr_all = zeros(A_length, length(lag0));
-stat_wsr_all = zeros(A_length, length(lag0));
-pval_ks_all = zeros(A_length, length(lag0));
-stat_ks_all = zeros(A_length, length(lag0));
-
-for i = 1:length(lag0)
-    disp(['Working on ', num2str(i), ' out of ', num2str(length(lag0)), '....'])
-    lag_i = round(orig_lags/dt);
-    lag_i(1) = lag0(i); % test 0 dB lag
-    dist_innerprod_i = analyze_innerprod_ABR(X_csv, lag_i, 'coeff');
-    [pval_wsr_all(:, i), stat_wsr_all(:, i), pval_ks_all(:, i), stat_ks_all(:, i)] = innerprod2pval(dist_innerprod_i); 
-end
-    
-% Plot p-vals
-figure('DefaultAxesFontSize', 20)
-figure, plot(A_csv, pval_wsr_all)
-xlabel('Stimulus level (dB)')
-ylabel('P-val')
-title('Wilcoxin sign rank test, 0 dB lag 0 to +/-2.56 ms')
+% %% 5-27-19: Check if p-val estimates for lag-inner product method are robust to 0 dB traces random lag
+% m0_traces = size(X_csv{1}, 2);
+% lag0 = -(m0_traces-1):(m0_traces-1); % all possible lags for lag0; index, not ms
+% orig_lags = this_lag;
+% pval_wsr_all = zeros(A_length, length(lag0));
+% stat_wsr_all = zeros(A_length, length(lag0));
+% pval_ks_all = zeros(A_length, length(lag0));
+% stat_ks_all = zeros(A_length, length(lag0));
+% 
+% for i = 1:length(lag0)
+%     disp(['Working on ', num2str(i), ' out of ', num2str(length(lag0)), '....'])
+%     lag_i = round(orig_lags/dt);
+%     lag_i(1) = lag0(i); % test 0 dB lag
+%     dist_innerprod_i = analyze_innerprod_ABR(X_csv, lag_i, 'coeff');
+%     [pval_wsr_all(:, i), stat_wsr_all(:, i), pval_ks_all(:, i), stat_ks_all(:, i)] = innerprod2pval(dist_innerprod_i); 
+% end
+%     
+% % Plot p-vals
+% figure('DefaultAxesFontSize', 20)
+% figure, plot(A_csv, pval_wsr_all)
+% xlabel('Stimulus level (dB)')
+% ylabel('P-val')
+% title('Wilcoxin sign rank test, 0 dB lag 0 to +/-2.56 ms')
 
 %% 5-17-19: Chunk inner product: histograms of Inner products like above, but use trough-trough chunk around max peak to do lag-inner product
 % 5-22-19: Make chunk from t=0 to trough after peak
@@ -841,3 +841,72 @@ for j = 1:length(alldist_innerprod)
     y_text = ks_score(THRESH_INDEX);
     text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
 end
+
+
+%% 5-31-19 Calculate xcov lags using chunk around maximum peak
+% avg_lag_xcovExtrap2 = lags_xcov(X_csv, dt, 0.5, A_csv, true, chunk2);
+avg_lag_xcovExtrap2 = lags_xcov_localmax(X_csv, dt, 0.5, A_csv, true, chunk2);
+dist_innerprod = analyze_innerprod_ABR(X_csv, round(avg_lag_xcovExtrap2/dt), 'coeff');
+[p_val, ranksum_stat, p_val_KS, ks_stat] = innerprod2pval(dist_innerprod);
+visualize_innerprod_stats(p_val, ranksum_stat, p_val_KS, ks_stat, A_csv)
+
+% Plot averaged ABR trace and distribution of single-trace signal
+% components per dB SPL level
+count2 = 0;
+figure('DefaultAxesFontSize', 16)
+AxesHandles_3 = zeros(A_length, 1);
+AxesHandles_4 = zeros(A_length, 1);
+axesHandle = zeros(A_length, 1);
+for i = 1:A_length
+    % Plot averaged ABR trace in first column - absolute scale
+    count2 = count2 + 1;
+    AxesHandles_3(i) = subplot(A_length, 3, count2);  
+    y = mean(X_csv{i}, 2);
+    plot(x, y*10^6)
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('\muV')
+    
+    % Plot averaged ABR trace in second column - relative scale
+    count2 = count2 + 1;
+    AxesHandles_4(i) = subplot(A_length, 3, count2);  
+%     y = mean(X_csv{i}, 2);
+%     plot(x, y*10^6)
+    plot(x, yrel_cache{i})
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('Rel volt')
+    
+%     % 5-25-19: PEAK LAGS: Plot peaks and troughs as overlay on relative average ABR
+%     hold on
+%     scatter(x(peak_cache{i}), yrel_cache{i}(peak_cache{i}), 'b') % blue peaks
+%     scatter(x(trough_cache{i}), yrel_cache{i}(trough_cache{i}), 'r') % red troughs
+%     scatter(x(maxpeaks_ind(i)),  yrel_cache{i}(maxpeaks_ind(i)), 'g')
+%     hold off
+
+    % 5-25-19: XCOV LAGS: plot max peak lag as black line
+    hold on
+    peaklag_i = x(maxpeaks_ind(A_length))+avg_lag_xcovExtrap2(i);
+    line([peaklag_i peaklag_i], ylim, 'LineWidth', 1, 'Color', 'k'); % vertical line for cutoff
+    hold off
+    
+    % Plot histogram of single-trace inner products
+    count2 = count2 + 1;
+    axesHandle(i) = subplot(A_length, 3, count2); 
+    histogram(dist_innerprod{i}, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'edgecolor', 'none')
+    xlabel('Inner product (a.u.)')
+    ylabel('Prob')
+    title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
+
+    % plot mean as blue line
+    hold on
+    signal_mean = mean(dist_innerprod{i});
+    line([signal_mean signal_mean], ylim, 'LineWidth', 1, 'Color', 'b'); % vertical line for cutoff
+    hold off
+end
+% Same y axes for average ABR plots
+same_yaxes(AxesHandles_3)
+same_yaxes(AxesHandles_4)
+% Same x and y axes for all histograms
+same_yaxes(axesHandle)
+same_xaxes(axesHandle)

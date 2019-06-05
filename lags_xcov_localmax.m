@@ -1,4 +1,4 @@
-%% lags_xcov.m
+%% lags_xcov_localmax.m
 % 
 % Find latency lags of averaged ABR traces using cross-covariance with coeff normalization
 %
@@ -21,11 +21,11 @@
 %             each dB level
 %
 % Dependencies: same_yaxes.m
-% Last edit: 5/31/2019
+% Last edit: 5/29/2019
 %
 % Author: George Liu
 
-function avg_lag_xcovExtrap = lags_xcov(X_csv, dt, varargin)
+function avg_lag = lags_xcov_localmax(X_csv, dt, varargin)
 
 % Calculate signal basis vector from normalized max averaged ABR trace
 signal_basis = mean(X_csv{end}, 2); % SAMPLES x 1 vector
@@ -51,6 +51,7 @@ elseif nargin == 6
     signal_basis = varargin{4};
 end
 
+PEAK_THRESH = 0.50; % peak detection to find local maxima in cross-covariance plots
 A_length = length(X_csv);
 
 
@@ -59,34 +60,39 @@ avg_lag = zeros(A_length, 1);
 r_cache = cell(A_length, 1);
 lags_cache = cell(A_length, 1);
 maxr_cache = zeros(A_length, 1);
-for i = 1:A_length
+peak_cache = cell(A_length, 1);
+trough_cache = cell(A_length, 1);
+for i = A_length:-1:1
     % Plot averaged ABR trace in first column
     y = mean(X_csv{i}, 2);
     [r,lags] = xcov(y, signal_basis, 'coeff');
-    [max_r, ind] = max(r);
-    avg_lag(i) = lags(ind)*dt;
+    [P, T] = PTDetect(r, PEAK_THRESH);
+    if i==A_length 
+        [max_r, ind] = max(r);
+        avg_lag(i) = lags(ind);
+    else
+        lastpeak2P = lags(P) - avg_lag(i+1);
+        lag_Pnext = min(lastpeak2P(lastpeak2P>0)) + avg_lag(i+1);
+        disp(i)
+        
+        if length(lag_Pnext)<1 % if no peak to right
+            lag_Pnext = avg_lag(i+1);
+        end
+        
+        avg_lag(i) = lag_Pnext;
+        max_r = r(lags==lag_Pnext);
+    end
     
     % cache vars
     r_cache{i} = r;
     lags_cache{i} = lags;
     maxr_cache(i) = max_r;
+    peak_cache{i} = P;
+    trough_cache{i} = T;
 end
 
-% Extrapolate starting from lowest dB where max cross-covariance is > 0.50
-% Find lowest dB
-[row, ~] = find(maxr_cache > XCOV_THRESH_LAG);
-ind_uselag = min(row);
-
-% Extrapolate
-avg_lag_extrap = avg_lag(ind_uselag:end);
-avg_lag_extrap = interp1(avg_lag_extrap, -(ind_uselag-2):1, 'linear', 'extrap')';
-
-%TODO 5-27-19: Ensure that extrapolated lags have ceiling of max possible lag
-
-% Save final extrapolation-correct xcov lags
-avg_lag_xcovExtrap = avg_lag;
-avg_lag_xcovExtrap(1:ind_uselag-1) = avg_lag_extrap(1:ind_uselag-1);
-
+% Convert average lags to ms
+avg_lag = avg_lag*dt;
 
 if visualizeFigs
     
@@ -96,13 +102,6 @@ if visualizeFigs
     xlabel('Stimulus level (dB SPL)')
     ylabel('Lag (ms)')
     title('Average ABR cross-covariance maxima lags')
-
-    % Overlay plot of extrapolation on lags vs dB
-    figure(hh)
-    hold on
-    plot(A_csv(1:length(avg_lag_extrap)), avg_lag_extrap, 'o--g')
-    title(['Cross-covariance lags, max(xcov)>', num2str(XCOV_THRESH_LAG)])
-    hold off
     
     % 5-25-19: Plot ave ABR cross-correlations (for finding lags) with signal basis to identify good peak
     %locations
@@ -110,20 +109,28 @@ if visualizeFigs
     AxesHandles_1 = zeros(A_length, 1);
     for i = 1:A_length
         AxesHandles_1(i) = subplot(ceil(A_length/2),2,i);
-        plot(lags_cache{i}, r_cache{i})
+        plot(lags_cache{i}*dt, r_cache{i})
         title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
         xlabel('Time (ms)')
         ylabel('xcov (a.u.)')
+        hold on
+        % Plot peaks and troughs as circles
+        scatter(lags_cache{i}(peak_cache{i})*dt, r_cache{i}(peak_cache{i}), 'b') % blue peaks
+        scatter(lags_cache{i}(trough_cache{i})*dt, r_cache{i}(trough_cache{i}), 'r') % red troughs
+        % Plot lag as black line
+        peaklag_i = avg_lag(i);
+        xline(peaklag_i, 'LineWidth', 1, 'Color', 'k'); % vertical line for cutoff
+        hold off
     end
     same_yaxes(AxesHandles_1)
 
     % Plot maximum cross-covariance versus dB level
     figure('DefaultAxesFontSize', 20)
     plot(A_csv, maxr_cache, 'o-b')
-    hold on, yline(XCOV_THRESH_LAG); hold off % add cutoff line to max xcov vs dB plot
+%     hold on, yline(XCOV_THRESH_LAG); hold off % add cutoff line to max xcov vs dB plot
     xlabel('Stimulus level (dB SPL)')
-    ylabel('Max xcov (a.u.)')
-    title(['Max cross-covariance, cutoff=', num2str(XCOV_THRESH_LAG)])
+    ylabel('Local max xcov (a.u.)')
+    title(['Local maxima cross-covariance'])
     
 end
 

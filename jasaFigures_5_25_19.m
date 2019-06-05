@@ -119,7 +119,7 @@ end
 % at the hair cell afferent fiber synapse". eLIFE (2018).
 
 % Identify peaks and troughs
-PEAK_THRESH = 0.5;
+PEAK_THRESH = 0.1;
 yave_cache = cell(A_length, 1);
 yrel_cache = cell(A_length, 1);
 peak_cache = cell(A_length, 1);
@@ -171,6 +171,12 @@ for i = 1:A_length
     % Find maximum peak-to-peak amplitude
     [max_p2p(i), ind] = max([peak2peak_pt; peak2peak_tp]);
 %     disp(ind)
+end
+
+%% 6-3-19: Test p2p method
+max_p2p = zeros(A_length, 1);
+for i=1:A_length
+    max_p2p(i) = vp2p_abr(mean(X_csv{i}, 2), PEAK_THRESH);
 end
 
 %% 5-25-19: Plot maximum peak-to-peak amplitude vs dB level
@@ -337,3 +343,181 @@ for i = 1:A_length
 end
 same_yaxes(axesHandles1)
 same_yaxes(axesHandles2)
+
+%% 6-3-19: Plot distribution of single-trace Vp-p and innerprods for each dB level
+PEAK_THRESH = 0.10;
+
+max_p2p_alldb = cell(A_length, 1);
+for i = 1:A_length
+    max_p2p_alldb{i} = vp2p_abr(X_csv{i}, PEAK_THRESH);
+end
+
+avg_lag_xcovExtrap = lags_xcov(X_csv, dt, 0.5, A_csv);
+dist_innerprod = analyze_innerprod_ABR(X_csv, round(avg_lag_xcovExtrap/dt), 'coeff');
+
+% Plot averaged ABR trace and distribution of single-trace signal
+% components per dB SPL level
+count2 = 0;
+figure('DefaultAxesFontSize', 16)
+AxesHandles_3 = zeros(A_length, 1);
+AxesHandles_4 = zeros(A_length, 1);
+axesHandle = zeros(A_length, 1);
+axesHandle2 = zeros(A_length, 1);
+for i = 1:A_length
+    % Plot averaged ABR trace in first column - absolute scale
+    count2 = count2 + 1;
+    AxesHandles_3(i) = subplot(A_length, 4, count2);  
+    y = mean(X_csv{i}, 2);
+    plot(x, y*10^6)
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('\muV')
+    
+    % Plot averaged ABR trace in second column - relative scale
+    count2 = count2 + 1;
+    AxesHandles_4(i) = subplot(A_length, 4, count2);  
+    plot(x, y/max(abs(y)))
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('Rel volt')
+    
+%     % 5-25-19: XCOV LAGS: plot max peak lag as black line
+%     hold on
+%     peaklag_i = x(maxpeaks_ind(A_length))+this_lag(i);
+%     line([peaklag_i peaklag_i], ylim, 'LineWidth', 1, 'Color', 'k'); % vertical line for cutoff
+%     hold off
+    
+    % Plot histogram of single-trace peak-peak voltages
+    count2 = count2 + 1;
+    axesHandle(i) = subplot(A_length, 4, count2); 
+    histogram(max_p2p_alldb{i}, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'edgecolor', 'r', 'DisplayStyle','stairs')
+    hold on
+    histogram(max_p2p_alldb{1}, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'edgecolor', 'b', 'DisplayStyle','stairs')
+    hold off
+    xlabel('Max peak-peak voltage (V)')
+    ylabel('Prob')
+    title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlim([0, 1]*10^-5)
+
+    % plot mean as blue line
+    hold on
+    signal_mean = mean(max_p2p_alldb{i});
+    line([signal_mean signal_mean], ylim, 'LineWidth', 1, 'Color', 'r'); % vertical line for cutoff
+    signal_mean0 = mean(max_p2p_alldb{1});
+    line([signal_mean0 signal_mean0], ylim, 'LineWidth', 1, 'Color', 'b'); % vertical line for cutoff
+    hold off
+
+    % Plot histogram of single-trace inner products
+    count2 = count2 + 1;
+    axesHandle2(i) = subplot(A_length, 4, count2); 
+    histogram(dist_innerprod{i}, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'edgecolor', 'r', 'DisplayStyle','stairs')
+    hold on
+    histogram(dist_innerprod{1}, 'BinMethod', 'fd', 'Normalization', 'probability', 'LineWidth', 0.5, 'FaceAlpha', 0.5, 'edgecolor', 'b', 'DisplayStyle','stairs')
+    hold off
+    xlabel('Inner product (a.u.)')
+    ylabel('Prob')
+    title(['Input A=', num2str(A_csv(i)), ' dB SPL'])
+
+    % plot mean as blue line
+    hold on
+    signal_mean = mean(dist_innerprod{i});
+    line([signal_mean signal_mean], ylim, 'LineWidth', 1, 'Color', 'r'); % vertical line for cutoff
+    signal_mean0 = mean(dist_innerprod{1});
+    line([signal_mean0 signal_mean0], ylim, 'LineWidth', 1, 'Color', 'b'); % vertical line for cutoff
+    hold off
+end
+% Same y axes for average ABR plots
+same_yaxes(AxesHandles_3)
+same_yaxes(AxesHandles_4)
+% Same x and y axes for all histograms
+same_yaxes(axesHandle)
+same_xaxes(axesHandle)
+
+same_yaxes(axesHandle2)
+same_xaxes(axesHandle2)
+
+%% 6-4-19: Psychometric curves for Vp-p and innerproducts of single trace distributions
+FP_RATE = 0.05;
+
+dist_allfeatures = {max_p2p_alldb, dist_innerprod};
+names_allfeatures = {'V_{p-p}', 'innerprod'};
+
+% Vp-p
+cut_fp05 = zeros(length(dist_allfeatures), 1);
+for j=1:length(dist_allfeatures)
+    dist_cell = dist_allfeatures{j};
+    noise_dist = dist_cell{1};
+    cut_fp05(j) = prctile(noise_dist, (1-FP_RATE)*100); % 5% false positive cutoff
+
+    % Hit rates vs dB
+    hits = zeros(A_length, 1);
+    hit_rate = zeros(A_length, 1);
+    for i = 1:A_length
+        this_dist = dist_cell{i};
+        hits(i) = sum(this_dist > cut_fp05(j));
+        hit_rate(i) = hits(i) / numel(this_dist);
+    end
+
+    % Plot 
+    figure('DefaultAxesFontSize', 20)
+    plot(A_csv, hit_rate, '-o')
+    title(['Psychometric curve for ', names_allfeatures{j}, ', FPR=', num2str(FP_RATE)], 'FontSize', 32)
+    xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+    ylabel('Hit rate', 'FontSize', 32)
+    xline(A_tresh_exact);
+    set(gca, 'XTick', sort([round(A_tresh_exact, 0), get(gca, 'XTick')]));
+end
+
+%% Plot peaks and troughs for average absolute ABRs and 5 sample single traces
+
+count2 = 0;
+figure('DefaultAxesFontSize', 16)
+AxesHandles_3 = zeros(A_length, 1);
+AxesHandles_4 = zeros(A_length, 1);
+axesHandle = zeros(A_length, 1);
+axesHandle2 = zeros(A_length, 1);
+for i = 1:A_length
+    % Plot averaged ABR trace in first column - absolute scale
+    count2 = count2 + 1;
+    AxesHandles_3(i) = subplot(A_length, 4, count2);  
+    y = mean(X_csv{i}, 2);
+    plot(x, y*10^6)
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('\muV')
+    
+    % Plot averaged ABR trace in second column - relative scale
+    count2 = count2 + 1;
+    AxesHandles_4(i) = subplot(A_length, 4, count2);  
+    plot(x, y/max(abs(y)))
+    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
+    xlabel('Time (ms)')
+    ylabel('Rel volt')
+end
+
+%% 6-5-19: Plot Wilcoxin rank-sum test p-values for each metric
+for j=1:length(dist_allfeatures)
+    dist_cell = dist_allfeatures{j};
+    
+    % Get Wilcoxin sum-rank p-values
+    [p_val, ranksum_stat, p_val_KS, ks_stat] = innerprod2pval(dist_cell);
+    
+    % Plot 
+    figure('DefaultAxesFontSize', 20)
+    plot(A_csv, p_val, '-o')
+    title(['P-value curve for ', names_allfeatures{j}, ', rank-sum'], 'FontSize', 32)
+    xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+    ylabel('P-value', 'FontSize', 32)
+    xline(A_tresh_exact);
+    set(gca, 'XTick', sort([round(A_tresh_exact, 0), get(gca, 'XTick')]));
+    
+    % Plot 
+    figure('DefaultAxesFontSize', 20)
+    plot(A_csv, p_val_KS, '-o')
+    title(['P-value curve for ', names_allfeatures{j}, ', K-S'], 'FontSize', 32)
+    xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
+    ylabel('P-value', 'FontSize', 32)
+    xline(A_tresh_exact);
+    set(gca, 'XTick', sort([round(A_tresh_exact, 0), get(gca, 'XTick')]));
+    
+end

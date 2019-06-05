@@ -25,7 +25,7 @@
 %
 % Author: George Liu
 
-function visualize_innerprod_stats(p_val, ranksum_stat, p_val_KS, ks_stats, A_csv)
+function visualize_innerprod_stats(p_val, ranksum_stat, p_val_KS, ks_stat, A_csv)
 
 THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
 
@@ -67,14 +67,14 @@ text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
 
 % Plot KS_score vs dB SPL level: K-S test
 subplot(2,2,4)
-plot(A_csv, ks_stats, '-o')
+plot(A_csv, ks_stat, '-o')
 title(['Kolmogorov-Smirnov test for inner products vs 0 dB SPL'])
 xlabel('Amplitude (dB SPL)')
 ylabel('K-S score')  
 % CUSTOM add coordinate of threshold point
 THRESH_INDEX = 5; % index of A_csv value that yields p_val < 0.05; from looking at plot
 x_text = A_csv(THRESH_INDEX);
-y_text = ks_stats(THRESH_INDEX);
+y_text = ks_stat(THRESH_INDEX);
 text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
 
 end
