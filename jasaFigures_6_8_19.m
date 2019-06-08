@@ -1,4 +1,4 @@
-%% jasaFigures_5_25_19.m
+%% jasaFigures_6_8_19.m
 % 
 % Create figures for JASA paper on inner product calculation of ABR
 % single-trace ensemble threshold
@@ -6,7 +6,8 @@
 % Run this script after "import_ABRcsv_folder.m", which loads Noor's
 % single-trace ABR data.
 %
-% Dependencies: analyze_v2_ABR.m, same_yaxes.m, PTDetect.m 
+% Dependencies: analyze_v2_ABR.m, same_yaxes.m, PTDetect.m, vp2p_abr.m,
+%               
 % Last edit: 5/26/2019
 %
 % Author: George Liu
@@ -65,47 +66,8 @@ for i = 1:A_length
 end
 same_yaxes(AxesHandles_1)
     
-%% 5-9-19: Threshold method 1: Plot averaged ABR RMS vs dB level (to see old threshold of 3*RMS no signal)
-RMS_averaged_trace = sqrt(RMS2_averaged_trace);
-figure('DefaultAxesFontSize', 20)
-y_uV = RMS_averaged_trace*10^6; % in case want to change V -> uV y-axis units
-NUM_STD_ABOVENOISE = 3;
-thresh_1 = NUM_STD_ABOVENOISE*y_uV(1);
-plot(A_csv, y_uV, '-o')
-my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0} = ', num2str(thresh_1), '\muV']);
-title(['RMS of averaged ABR trace'], 'FontSize', 32)
-xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
-ylabel('RMS (\muV)', 'FontSize', 32)
-set(my_yline, 'FontSize', 18)
-% set(gca,'FontSize',20)
 
-% Identify threshold and mark vertical line
-isrms_above = y_uV > thresh_1;
-if any(y_uV)
-    Athresh_ind = find(isrms_above, 1) - 1;
-    A_thresh = A_csv(Athresh_ind);
-    
-    % Linear interpolate to identify exact amplitude corresponding to
-    % 3*RMS_0
-    dify = y_uV(Athresh_ind + 1) - y_uV(Athresh_ind);
-    difx = A_csv(Athresh_ind + 1) - A_thresh; % should be 5 dB or whatever amplitude spacing is
-    mslope = dify/difx;
-    deltay = thresh_1 - y_uV(Athresh_ind);
-    A_tresh_exact = A_thresh + deltay/mslope;
-    
-    % Draw vertical line at exact threshold amplitude 
-    hold on
-    line([A_tresh_exact A_tresh_exact], [0, thresh_1], 'LineWidth', 1, 'Color', 'k', 'LineStyle', '--'); % vertical line at exact threshold
-    set(gca, 'XTick', sort([round(A_tresh_exact, 0), get(gca, 'XTick')]));
-    hold off
-else
-    disp('Warning: No ABR RMS threshold!')
-end
-
-
-% Also plot 2*RMS_0 threshold line
-
-%% 5-25-19: Threshold method 2: Find dB level when max peak-peak amplitude 
+%% 5-25-19: Threshold method (Oghalai/Ricci labs): Find dB level when max peak-peak amplitude 
 % in average ABR > 4 (or 5*) standard deviations above noise floor. 
 % References: 
 % (1) Wenzel et al. "Laser-induced collagen remodeling and deposition 
@@ -154,30 +116,10 @@ same_yaxes(AxesHandles_1)
 
 %Find maximum peak-to-peak amplitude in average ABR at each dB level
 max_p2p = zeros(A_length, 1);
-for i = 1:A_length
-    y = yave_cache{i};
-    P = peak_cache{i};
-    T = trough_cache{i};
-    
-    % If peak first, then pair peak with trough and trough before
-    if P(1) < T(1) % # troughs = # peaks OR # peaks-1
-        peak2peak_pt = y(P(1:length(T))) - y(T); % peak then trough
-        peak2peak_tp = y(P(2:end)) - y(T(1:length(P)-1)); % trough then peak
-    else % T(1) < P(1) % # troughs = # peaks OR # peaks+1
-        peak2peak_pt = y(P(1:length(T)-1)) - y(T(2:end));
-        peak2peak_tp = y(P) - y(T(1:length(P)));
-    end
-    
-    % Find maximum peak-to-peak amplitude
-    [max_p2p(i), ind] = max([peak2peak_pt; peak2peak_tp]);
-%     disp(ind)
-end
-
-%% 6-3-19: Test p2p method
-max_p2p = zeros(A_length, 1);
 for i=1:A_length
     max_p2p(i) = vp2p_abr(mean(X_csv{i}, 2), PEAK_THRESH);
 end
+
 
 %% 5-25-19: Plot maximum peak-to-peak amplitude vs dB level
 figure('DefaultAxesFontSize', 20)
@@ -186,7 +128,7 @@ y_uV = max_p2p*10^6; % in case want to change V -> uV y-axis units
 NUM_STD_ABOVENOISE = 4; % 4 or 5
 thresh_up = NUM_STD_ABOVENOISE*RMS_averaged_trace_uV(1);
 thresh_1 = thresh_up + y_uV(1);
-h8 = plot(A_csv, y_uV, '-o');
+plot(A_csv, y_uV, '-o');
 my_yline = yline(thresh_1, '--', ['THRESHOLD = ', num2str(NUM_STD_ABOVENOISE), '(RMS)_{0}+V_0^{p-p} = (', num2str(thresh_up, 3), ' + ', num2str(y_uV(1), 3), ')\muV = ', num2str(thresh_1), ' \muV']);
 title(['Peak-to-peak amplitude of average ABR'], 'FontSize', 32)
 xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
@@ -217,132 +159,6 @@ else
     disp('Warning: No ABR RMS threshold!')
 end
 
-%% 5-26-19: Fsp method Elberling 1984
-% Fsp = N*VAR(X¯)/VAR(SP), then use F distribution with parameters DOF v2 = N-1, v1 = 5. 
-% Based on Elberling and Don, "Quality Estimation of Averaged Auditory Brainstem Responses". Scan Audiol 13:187-197 (1984).
-TIME_PT_IND = round(SAMPLES/2);
-Fsp_cache = zeros(A_length, 1);
-p_fsp = zeros(A_length, 1);
-for i = 1:A_length
-    this_X = X_csv{i}; % SAMPLES x this_m 
-    this_Xave = mean(this_X, 2); 
-    var_xbar = var(this_Xave);
-    var_mp = var(this_X, 0, 2); % can average multiple points!
-    var_sp = var_mp(TIME_PT_IND);
-    N = size(this_X, 2);
-
-    Fsp = N*var_xbar/var_sp;
-    v1 = 5;
-    v2 = N-1;
-    p_fsp(i) = fcdf(Fsp, v1, v2, 'upper');
-    
-    % Cache variables
-    Fsp_cache(i) = Fsp;
-end
-
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, p_fsp, '-o')
-title(['Fsp F-dist CDF vs dB level'], 'FontSize', 32)
-xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
-ylabel('F-dist CDF (p-val)', 'FontSize', 32)
-% set(my_yline, 'FontSize', 18)
-
-% CUSTOM add coordinate of threshold point
-THRESH_INDEX = 6; % index of A_csv value that yields p_val < 0.05; from looking at plot
-x_text = A_csv(THRESH_INDEX);
-y_text = p_fsp(THRESH_INDEX);
-text(x_text - 8, y_text, ['(' num2str(x_text) ', ' num2str(y_text, 2) ')'])
-
-% 5-27-19: Plot Fsp value vs dB
-figure('DefaultAxesFontSize', 20)
-plot(A_csv, Fsp_cache, '-o')
-title(['Fsp vs dB level'], 'FontSize', 32)
-xlabel('Stimulus level (dB SPL)', 'FontSize', 32)
-ylabel('Fsp', 'FontSize', 32)
-% set(my_yline, 'FontSize', 18)
-
-% %% 5-29-19: Bootstrap statistics for inner product and other methods of calculating threshold
-% 
-% f = @analyze_innerprod_ABR;
-% g = @innerprod2pval;
-% h = @lags_xcov;
-% innerprod_sumrank = @(x) g(f(x, round(h(x, dt, 0.50, A_csv)/dt), 'coeff'));
-% 
-% min_traces = min(m);
-% 
-% nboot = 10; % # boot strap samples to estimate threshold and std threshold
-% % mboot = 514; % # single traces (samples) per dB level
-% mboot = [50, 100, 200, 400]; % # single traces (samples) per dB level
-% P_CRIT = 0.05; % critical p-value for determining threshold from p-values returned by inner product-rank sum test
-% 
-% num_samplesizes = length(mboot);
-% % Iterate over sample sizes
-% th_ranksum_mean = zeros(num_samplesizes, 1);
-% th_ranksum_std = zeros(num_samplesizes, 1);
-% for k = 1:num_samplesizes
-%     disp(['Working on ', num2str(k), '-th sample size ', num2str(mboot(k)), ' out of ', num2str(mboot(end)), '...'])
-%     pval_sumrank = zeros(A_length, nboot);
-%     thresh_ranksum = zeros(nboot, 1);
-%     
-%     % Create ensemble of bootstrapped samples for given sample size
-%     for i = 1:nboot
-% 
-%         % Creat n-th bootstrapped dataset with mboot single traces
-%         bootX = cell(A_length, 1);
-%         for j=1:A_length
-%             ix = ceil(min_traces * rand(1, mboot(k))); % with replacement
-%     %         ix = randsample(min_traces, mboot); % without replacement
-%             bootX{j} = X_csv{j}(:, ix);
-%         end
-% 
-%         % Get threshold for bootstrapped sample
-% 
-%         % inner product rank sum method
-%         pval_sumrank(:, i) = innerprod_sumrank(bootX); % A_length x 1 vector of p-values for each dB level inner product-sum rank test
-%         [~, ind] = max(A_csv(pval_sumrank(:, i)>P_CRIT)); % level just below threshold
-%         thresh_ranksum(i) = A_csv(ind + 1); % threshold level
-%         disp(thresh_ranksum(i))
-% 
-%     end
-% 
-%     % save mean and std of threshold - rank sum method
-%     th_ranksum_mean(k) = mean(thresh_ranksum);
-%     th_ranksum_std(k) = std(thresh_ranksum);
-% end
-% 
-% %% Visualize FFT single-sided power spectra
-% figure('DefaultAxesFontSize', 16)
-% L = length(x);
-% axesHandles1 = zeros(A_length, 1);
-% axesHandles2 = zeros(A_length, 1);
-% for i = 1:A_length
-%     y_ave = mean(X_csv{i}, 2);
-%     axesHandles1(i) = subplot(A_length, 2, (i-1)*2+1);
-%     plot(x, y_ave)
-%     xlabel('Time (ms)')
-%     ylabel('Volt (V)')
-%     title(['Amplitude ', num2str(A_csv(i)), ' dB SPL'])
-%     
-% %     % Compute the Fourier transform of the signal.
-% %     y_ave_fft = fft(y_ave);
-% % 
-% %     % Compute the two-sided spectrum P2. Then compute the single-sided spectrum P1 based on P2 and the even-valued signal length L.
-% %     P2 = abs(y_ave_fft/L);
-% %     P1 = P2(1:L/2+1);
-% %     P1(2:end-1) = 2*P1(2:end-1);
-% % 
-% %     % Define the frequency domain f and plot the single-sided amplitude spectrum P1. On average, longer signals produce better frequency approximations.
-% %     f = SAMPLING_RATE*(0:(L/2))/L;
-%     [f, P1] = fft_p1(y_ave, SAMPLING_RATE);
-%     axesHandles2(i) = subplot(A_length, 2, (i-1)*2+2);  
-%     plot(f,P1) 
-%     title(['Single-Sided Amplitude Spectrum, ', num2str(A_csv(i)), ' dB SPL'])
-%     xlabel('f (Hz)')
-%     ylabel('|P1(f)|')
-% %     xlim([0, 5000])
-% end
-% same_yaxes(axesHandles1)
-% same_yaxes(axesHandles2)
 
 %% 6-3-19: Plot distribution of single-trace Vp-p and innerprods for each dB level
 PEAK_THRESH = 0.10;
@@ -494,33 +310,6 @@ for j=1:length(dist_allfeatures)
     else
         disp('Warning: No ABR RMS threshold!')
     end
-end
-
-%% Plot peaks and troughs for average absolute ABRs and 5 sample single traces
-
-count2 = 0;
-figure('DefaultAxesFontSize', 16)
-AxesHandles_3 = zeros(A_length, 1);
-AxesHandles_4 = zeros(A_length, 1);
-axesHandle = zeros(A_length, 1);
-axesHandle2 = zeros(A_length, 1);
-for i = 1:A_length
-    % Plot averaged ABR trace in first column - absolute scale
-    count2 = count2 + 1;
-    AxesHandles_3(i) = subplot(A_length, 4, count2);  
-    y = mean(X_csv{i}, 2);
-    plot(x, y*10^6)
-    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
-    xlabel('Time (ms)')
-    ylabel('\muV')
-    
-    % Plot averaged ABR trace in second column - relative scale
-    count2 = count2 + 1;
-    AxesHandles_4(i) = subplot(A_length, 4, count2);  
-    plot(x, y/max(abs(y)))
-    title(['Average ABR, Input A=', num2str(A_csv(i)), ' dB SPL'])
-    xlabel('Time (ms)')
-    ylabel('Rel volt')
 end
 
 %% 6-5-19: Plot Wilcoxin rank-sum test p-values for each metric
