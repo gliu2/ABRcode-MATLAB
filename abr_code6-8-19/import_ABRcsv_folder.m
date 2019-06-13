@@ -35,35 +35,15 @@ for i = 1:A_length
     [X_csv{i}, A_csv(i), freq_csv(i)] = import_ABRcsv(filename_natorder{i}, selpath);
 end
 
-%% 6-12-19: Obtain only a fixed number of single traces per dB level
-IMPORT_NUM_TRACES = 514;
-for i = 1:A_length
-    X_csv{i} = X_csv{i}(:, 1:IMPORT_NUM_TRACES);
-end
-
-% %% Truncate data to last 8 ms if first 2 ms are noise (manually comment out for traces with tone pip at 0 ms)
-% SAMPLES = size(X_csv{1}, 1);
-% SAMPLING_RATE = 200000; % Hz
-% dt = 1/SAMPLING_RATE * 1000; % ms
-% T_total = (SAMPLES-1)*dt; % ms
-% x = 0:dt:T_total;
-% 
-% TIME_TONEPIP = 2; % ms
-% ind_tonepip = find(x==TIME_TONEPIP); 
-% for i = 1:A_length
-%     X_csv{i} = X_csv{i}(ind_tonepip:end, :);
-% end
-
-%% 6-12-19: Ensure trace is 7.755 ms long, even if tone pip is played at start
+%% Truncate data to last 8 ms if first 2 ms are noise (manually comment out for traces with tone pip at 0 ms)
 SAMPLES = size(X_csv{1}, 1);
 SAMPLING_RATE = 200000; % Hz
 dt = 1/SAMPLING_RATE * 1000; % ms
 T_total = (SAMPLES-1)*dt; % ms
 x = 0:dt:T_total;
 
-NEW_T_TOTAL = 7.755; % ms
-tol = 1e-3; 
-ind_Tend = find(abs(x-NEW_T_TOTAL)<tol);
+TIME_TONEPIP = 2; % ms
+ind_tonepip = find(x==TIME_TONEPIP); 
 for i = 1:A_length
-    X_csv{i} = X_csv{i}(1:ind_Tend, :);
+    X_csv{i} = X_csv{i}(ind_tonepip:end, :);
 end

@@ -1,7 +1,7 @@
-%% vp2p_abr_sp.m
+%% vp2p_abr_sp_loc.m
 % 
-% Find peak-to-peak voltages in single traces, using same two time-points as
-% were used to calculate maximum peak-to-peak voltage in average ABR trace.
+% Find locations of the maximum peak and minimum trough in coherent average
+% ABR trace that were used to calculate maximum peak-to-peak voltage.
 %
 % Assumptions:
 % Peak to peak voltage is defined as difference between neighboring positive peak and
@@ -12,14 +12,15 @@
 % 
 %         PEAK_THRESH (optional) - scalar for peak detection threshold. Default 0.50.
 %
-% Output: p2p - peak-to-peak voltages, (m_traces, 1)
+% Output: ind_peak - index of peak for peak-peak voltage in coherent average BR
+%         ind_trough - index of trough for peak-peak voltage in coherent average BR
 %
 % Dependencies: PTDetect.m
 % Last edit: 6/8/2019
 %
 % Author: George Liu
 
-function p2p = vp2p_abr_sp(X, varargin) 
+function [ind_peak, ind_trough] = vp2p_abr_sp_loc(X, varargin) 
 
 % Identify peaks and troughs
 if nargin==1
@@ -52,11 +53,7 @@ end
 
 % Find maximum peak-to-peak amplitude
 [~, ind] = max([peak2peak_pt; peak2peak_tp]);
-t1 = Pall(ind);
-t2 = Tall(ind);
-
-% Find time-aligned peak-to-peak amplitude differences in single traces
-p2p = X(t1, :) - X(t2, :); % vector of length (1, m_traces)
-p2p = p2p';
+ind_peak = Pall(ind);
+ind_trough = Tall(ind);
 
 end

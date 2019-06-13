@@ -7,8 +7,9 @@
 % at a given dB level and the coherent average ABR at maximum dB level. 
 %
 % Cross-covariance is calculated with 'coeff' normalization. This is 
-% cross-correlation with mean-subtracted, RMS-divided distribution, which 
-% normalizes by single-trace's mean and standard deviation, respectively. 
+% cross-correlation with mean-subtracted, RMS-divided distribution, 
+% which normalizes by single-trace's mean. Coeff normalization divides distributions and standard deviation,
+% respectively. 
 %
 % Assumptions:
 % Dataset is assumed to contain (m_traces) single-trace ABR measurements 
@@ -38,7 +39,7 @@
 %               single trace (at i-th dB level) with max dB level average ABR trace.
 %
 % Dependencies: none
-% Last edit: 6/8//2019
+% Last edit: 5/25/2019
 %
 % Author: George Liu
 

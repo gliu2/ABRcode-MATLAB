@@ -12,7 +12,7 @@
 % Dependencies: same_yaxes.m, same_xaxes.m, PTDetect.m,
 %               analyze_innerprod_ABR.m, innerprod2pval.m, visualize_innerprod_stats.m
 %
-% Last edit: 5/26/2019 - modularized calculating innerprods, pvals,
+% Last edit: 6-8/2019 - modularized calculating innerprods, pvals,
 %                        visualize stats plots
 %
 % Author: George Liu
@@ -26,7 +26,7 @@ x = 0:dt:T_total;
 %% Inner products: Plot averaved ABR waveforms -- the current standard for visually determining ABR threshold
 % Also plot single-trace inner products
 
-dist_innerprod = analyze_innerprod_ABR(X_csv, zeros(A_length, 1), 'coeff');
+dist_innerprod = analyze_innerprod_ABR(X_csv, zeros(A_length, 1));
 % % Calculate signal basis vector from normalized max averaged ABR trace
 % max_averagedABR_trace = mean(X_csv{end}, 2); % SAMPLES x 1 vector
 % magn = dot(max_averagedABR_trace, max_averagedABR_trace);
@@ -247,7 +247,7 @@ title(['Peak lags with fit for ', num2str(A_csv(midA_ind)), ' dB peaks and above
 % THEN RUN SIGN RANK AND K-S TESTS USING CELL WAY ABOVE
 this_lag = avg_lag_xcovExtrap; % 5-25-19 added to modularize lag calculation; this_lag units of ms
 
-dist_innerprod = analyze_innerprod_ABR(X_csv, round(this_lag/dt), 'coeff');
+dist_innerprod = analyze_innerprod_ABR(X_csv, round(this_lag/dt));
 % % Calculate signal basis vector from normalized max averaged ABR trace
 % max_averagedABR_trace = mean(X_csv{end}, 2); % SAMPLES x 1 vector
 % magn = dot(max_averagedABR_trace, max_averagedABR_trace);
@@ -343,7 +343,7 @@ same_xaxes(axesHandle)
 %     disp(['Working on ', num2str(i), ' out of ', num2str(length(lag0)), '....'])
 %     lag_i = round(orig_lags/dt);
 %     lag_i(1) = lag0(i); % test 0 dB lag
-%     dist_innerprod_i = analyze_innerprod_ABR(X_csv, lag_i, 'coeff');
+%     dist_innerprod_i = analyze_innerprod_ABR(X_csv, lag_i);
 %     [pval_wsr_all(:, i), stat_wsr_all(:, i), pval_ks_all(:, i), stat_ks_all(:, i)] = innerprod2pval(dist_innerprod_i); 
 % end
 %     
@@ -682,9 +682,9 @@ chunk3(1:chunk3_start-1) = 0;
 chunk3(chunk3_end+1:end) = 0; 
 
 % Compute distribution of inner products (single traces) at each dB level. % m_traces x 1 vector
-dist_innerprod1 = analyze_innerprod_ABR(X_csv, round(lefttrough_lags/dt), 'coeff', chunk1); % 1st trough lag; lags from peak shifts at all dB level
-dist_innerprod2 = analyze_innerprod_ABR(X_csv, round(maxpeak_lags/dt), 'coeff', chunk2); % Max peak lags; lags from peak shifts at all dB level
-dist_innerprod3 = analyze_innerprod_ABR(X_csv, round(righttrough_lags/dt), 'coeff', chunk3); % 2nd trough lag; lags from peak shifts at all dB level
+dist_innerprod1 = analyze_innerprod_ABR(X_csv, round(lefttrough_lags/dt), chunk1); % 1st trough lag; lags from peak shifts at all dB level
+dist_innerprod2 = analyze_innerprod_ABR(X_csv, round(maxpeak_lags/dt), chunk2); % Max peak lags; lags from peak shifts at all dB level
+dist_innerprod3 = analyze_innerprod_ABR(X_csv, round(righttrough_lags/dt), chunk3); % 2nd trough lag; lags from peak shifts at all dB level
 
 % Plot averaged ABR trace and distribution of single-trace signal
 % components per dB SPL level
@@ -846,7 +846,7 @@ end
 %% 5-31-19 Calculate xcov lags using chunk around maximum peak
 % avg_lag_xcovExtrap2 = lags_xcov(X_csv, dt, 0.5, A_csv, true, chunk2);
 avg_lag_xcovExtrap2 = lags_xcov_localmax(X_csv, dt, 0.5, A_csv, true, chunk2);
-dist_innerprod = analyze_innerprod_ABR(X_csv, round(avg_lag_xcovExtrap2/dt), 'coeff');
+dist_innerprod = analyze_innerprod_ABR(X_csv, round(avg_lag_xcovExtrap2/dt));
 [p_val, ranksum_stat, p_val_KS, ks_stat] = innerprod2pval(dist_innerprod);
 visualize_innerprod_stats(p_val, ranksum_stat, p_val_KS, ks_stat, A_csv)
 
