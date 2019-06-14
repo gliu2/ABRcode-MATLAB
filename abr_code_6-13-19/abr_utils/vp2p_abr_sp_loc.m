@@ -13,7 +13,7 @@
 %         PEAK_THRESH (optional) - scalar for peak detection threshold. Default 0.50.
 %
 % Output: ind_peak - index of peak for peak-peak voltage in coherent average BR
-%         ind_trough - index of lowest trough in coherent average BR
+%         ind_trough - index of trough for peak-peak voltage in coherent average BR
 %
 % Dependencies: PTDetect.m
 % Last edit: 6/8/2019

@@ -39,6 +39,10 @@ M = xlsread(fullfile(path, file), dataCorners);
 for i = 2:2:length(dataset_names)+1
 dataset_names{i} = dataset_names{i-1};
 end
+dataset_names_sparse = cell(length(dataset_names)/2, 1);
+for i = 1:length(dataset_names_sparse)
+    dataset_names_sparse{i} = dataset_names{1+2*(i-1)};
+end
 
 % get stat y-axis labels for each row
 [~,stat_ylabel,~] = xlsread(fullfile(path, file), 'B3:B18');
@@ -50,6 +54,25 @@ end
 dataset_colors = jet(NUM_DATASETS);
 
 %% Collect data into groups
+ylim_all = {...
+    [0, 0.06], ...
+    [0, 0.5], ...
+    [0, 95], ...
+    [0, 95], ...
+    [0, 95], ...
+    [0, 95], ...
+    [0, 95], ...
+    [0, 1], ...
+    [0, 1], ...
+    [0, 1], ...
+    [0, 1], ...
+    [0.5, 1], ...
+    [0.5, 1], ...
+    [0.5, 1], ...
+    [0.5, 1], ...
+    [0.5, 1], ...
+    };
+
 num_summarystats = length(M);
 vpp_stats = M(:, 1:2:end);
 ip_stats = M(:, 2:2:end);
@@ -59,7 +82,9 @@ for i=1:num_summarystats
     this_ipstat = ip_stats(i, :);
     
     data = [this_vppstat', this_ipstat'];
-    plot_scatter2groups(data, 1, feature_names(1:2), 
+    plot_scatter2groups(data, 1, feature_names(1:2), stat_ylabel(i), dataset_names_sparse, ylim_all{i});
+    title(stat_names{i})
+    
 %     figure('DefaultAxesFontSize', 20)
 %     boxplot(data, 'Notch','on','Labels', feature_names(1:2), 'Whisker',1)
 %     title(stat_names{i})
@@ -80,3 +105,27 @@ for i=1:num_summarystats
 %     f1=scatter(x0(:,1), data(:,1), MARKER_SIZE, dataset_colors, 'filled');f1.MarkerFaceAlpha = 0.4;hold on 
 %     f2=scatter(x1(:,2).*2, data(:,2), MARKER_SIZE, dataset_colors,'filled');f2.MarkerFaceAlpha = f1.MarkerFaceAlpha;hold on
 end
+
+%%
+disp('Select folder for saving figures... ')
+FolderName = uigetdir;   % Your destination folder
+disp(FolderName)
+
+FigList = findobj(allchild(0), 'flat', 'Type', 'figure');
+
+%Plot
+DATASET_DATE_IDENTIFIER = '_6-12-19';
+
+FIGNAMES = stat_names;
+
+% for iFig = 1:length(FigList)
+for i = 1:length(FigList)
+    iFig = length(FigList) - i + 1;
+    disp(['Saving figure ', num2str(i), ' out of ', num2str(length(FigList))])
+    FigHandle = FigList(iFig);
+    FigName   = FIGNAMES{i};  % Adjust the FigName to your needs.
+    saveas(FigHandle, fullfile(FolderName, [FigName, DATASET_DATE_IDENTIFIER, '.fig']));    % FIG file
+    print(FigHandle, fullfile(FolderName, [FigName, DATASET_DATE_IDENTIFIER, '.eps']), '-depsc', '-loose'); % save EPS file with color
+end
+
+disp('Done.')

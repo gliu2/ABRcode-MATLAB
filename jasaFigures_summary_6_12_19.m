@@ -125,7 +125,7 @@ for i = 1:length(FigList)
     FigHandle = FigList(iFig);
     FigName   = FIGNAMES{i};  % Adjust the FigName to your needs.
     saveas(FigHandle, fullfile(FolderName, [FigName, DATASET_DATE_IDENTIFIER, '.fig']));    % FIG file
-    saveas(FigHandle, fullfile(FolderName, [FigName, DATASET_DATE_IDENTIFIER, '.eps']));    % EPS file
+    print(FigHandle, fullfile(FolderName, [FigName, DATASET_DATE_IDENTIFIER, '.eps']), '-depsc', '-loose'); % save EPS file with color
 end
 
 disp('Done.')
