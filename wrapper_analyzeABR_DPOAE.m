@@ -9,8 +9,8 @@ for i=1:n_files
     
     % Wrapper for analysis script
     % DPOAE
-    script_plotstack_DPOAE
+%     script_plotstack_DPOAE
     
     % ABR
-%     script_plotstack_averageABR
+    script_plotstack_averageABR
 end
