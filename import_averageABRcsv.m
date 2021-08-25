@@ -26,12 +26,19 @@ end
 
 % Get ABR input frequency and amplitude
 N = size(M, 1); % number of traces
-R2 = 1;
+R2 = 2;
 R3 = R2 + N - 1;
-C2 = 12; % column M index is 13, with Frequency
-C3 = 13; % column N input dB amplitude
-M2 = csvread(filepath,R2,C2, [R2 C2 R3 C3]);
+C2 = 13; % column M index is 13, with Frequency
+C3 = 14; % column N input dB amplitude
+M2 = readmatrix(filepath, 'Range', [R2 C2 R3 C3]);
 freq_csv = M2(:, 1); % Hz
-A_csv = M2(:, end); % dB
+A_csv = M2(:, 2); % dB
+
+% Correct if headers for freq and dB are switched
+headers = readmatrix(filepath, 'Range', [1 C2 1 C3], 'OutputType', 'string');
+if contains(headers(1), 'level', 'IgnoreCase', true)
+    freq_csv = M2(:, 2); % Hz
+    A_csv = M2(:, 1); % dB
+end
 
 end
