@@ -12,6 +12,7 @@ function outTable = plotstack_averageABR(varargin)
 %% Constants
 SAVE_PATH = 'd:\users\admin\Documents\George\Results'; % path for saving figures
 SAMPLE_PERIOD = 40.96; % sample period of 40.96 us/sample in average trace
+TIME_WINDOW = [1, 2]; % time in ms to analyze portion of ABR trace with inner product method
 
 %% Load average trace data
 if nargin == 2
@@ -27,17 +28,27 @@ end
 disp(['Opening ', fullfile(path, filename)])
 [M, A_csv, freq_csv] = import_averageABRcsv(filename, path);
 num_samples = size(M, 2);
-X = SAMPLE_PERIOD / 1000 * (1:num_samples); 
+X = SAMPLE_PERIOD / 1000 * (1:num_samples); % time in ms
+A_levels = unique(A_csv);
+num_levels = length(A_levels);
 
-% Analyze DPOAEs for each frequency separately
+% Analyze ABRs for each frequency separately
 [freq_unique, ~, ic] = unique(freq_csv);
 n_freq = length(freq_unique);
 
 % Initialize cache variables
 Frequency = freq_unique;
-Amplitude = zeros(n_freq, 1);
-Latency = zeros(n_freq, 1);
-Threshold = zeros(n_freq, 1);
+Stimulus_amplitude = zeros(n_freq, num_levels);
+Threshold_liberman = zeros(n_freq, 1);
+Threshold_oghalai = zeros(n_freq, 1);
+Threshold_innerprod = zeros(n_freq, 1);
+Threshold_wave1amp = zeros(n_freq, 1);
+Metric_liberman = zeros(n_freq, num_levels);
+Metric_oghalai = zeros(n_freq, num_levels);
+Metric_innerprod = zeros(n_freq, num_levels);
+Metric_innerprod_auc = zeros(n_freq, num_levels);
+Metric_wave1amp = zeros(n_freq, num_levels);
+Metric_wave1lat = zeros(n_freq, num_levels);
 
 % Obtain y axis scale
 ylim_max = [-1200, 1200];
@@ -52,8 +63,6 @@ if ymin_data < ylim_max(1)
 end
 
 % Plot ABRs in column stacks for each frequencies, in one tiled layout
-A_levels = unique(A_csv);
-num_levels = length(A_levels);
 fig = figure;
 t = tiledlayout(num_levels, n_freq, 'TileIndexing', 'columnmajor');
 for ff = 1:n_freq
@@ -79,14 +88,13 @@ for ff = 1:n_freq
 %     s = stackedplot(X, M_sorted', 'Title', plot_title, 'DisplayLabels', newYlabels, 'LineWidth', 1.5);
     
     % Calculate threshold
-    thresh_cache = get_thresh_averageABR(M_sorted, A_descending);
+    [thresh_cache_liberman, this_metric_liberman] = get_thresh_averageABR_liberman(M_sorted, A_descending);
+    [thresh_cache_oghalai, this_metric_oghalai] = get_thresh_averageABR_oghalai(M_sorted, A_descending, false);
 
     % initialize variables
-    amp_cache = NaN;
-    lat_cache = NaN;
     is_abovenoise = zeros(num_levels, 1);
     for i = 1:num_levels
-        nexttile
+        nexttile(t)
         y = M_sorted(i, :);
         plot(X, y, 'LineWidth', 1.5)
         ylim(ylim_max)
@@ -100,7 +108,15 @@ for ff = 1:n_freq
         end
 
         % Mark wave 1 peak and following trough
-        [peak_pt, trough_pt, amp, lat] = get_wave1_averageABR(X, y);
+        if i==1
+            % Get wave 1 peak and following trough at highest stimulus
+            % level
+            [peak_pt, trough_pt, amp, lat] = get_wave1_averageABR(X, y);
+        else
+            % Get wave 1 peak and following trough at lower stimulus
+            % level. Ensure peak latency does not decrease.
+            [peak_pt, trough_pt, amp, lat] = get_wave1_averageABR(X, y, peak_pt(1), trough_pt(1));
+        end
         hold on
         scatter(peak_pt(1), peak_pt(2), [], 'green') % peak
         scatter(trough_pt(1), trough_pt(2), [], 'red') % trough
@@ -110,30 +126,13 @@ for ff = 1:n_freq
         xL=xlim;
         yL=ylim;
         str = sprintf('P-P_I = %.0f nV', amp);
-        noise_floor = std(M_sorted(end, :));
-%         if amp > 3*noise_floor
-        if A_descending(i) > thresh_cache
+        if A_descending(i) > thresh_cache_liberman
             text(0.99*xL(2), 0.99*yL(1), str,'HorizontalAlignment','right','VerticalAlignment','bottom', 'FontWeight', 'bold')
             is_abovenoise(i,1)=1;
         else
             text(0.99*xL(2), 0.99*yL(1), str,'HorizontalAlignment','right','VerticalAlignment','bottom')
             is_abovenoise(i,1)=0;
         end
-
-%         % Calculate normalized cross covariance for each wave with prior level,
-%         % except max level
-% %         if i~=1
-% %             c = xcov(y, M_sorted(i-1, :), 'normalized');
-% %             num_lags = numel(c);
-% %             ind_lag0 = ceil(num_lags/2);
-% %             c_lag0 = c(ind_lag0);
-% %             
-% %             str2 = sprintf('xcor = %.2f', c_lag0);
-% %             text(0.99*xL(2), 0.99*yL(2), str2,'HorizontalAlignment','right','VerticalAlignment','top')
-% %         end
-%         metric = get_thresh_averageABR(M_sorted);
-%         str2 = sprintf('metric = %.2f', metric(i));
-%         text(0.99*xL(2), 0.99*yL(2), str2,'HorizontalAlignment','right','VerticalAlignment','top')
         
         % Remove extraneous axis tick marks and x-axis from all but bottom
         % tile
@@ -151,42 +150,29 @@ for ff = 1:n_freq
         % Set text size of current axis
         set(gca,'FontSize',10)
         
-        % Cache wave 1 amplitude and latency for highest stimulus level
         % Show frequency as title above top-most tile of each column
         if i==1
-            amp_cache = amp;
-            lat_cache = lat;
-            
             title([num2str(this_freq), ' Hz'])
         end
+        
+        % Cache wave 1 amplitude and latency for highest stimulus level
+        Metric_wave1amp(ff, i) = amp; % nV
+        Metric_wave1lat(ff, i) = lat; % ms
     end
 
     xlabel('Time (ms)')
     
-%     % Save figure
-% %     disp('Saving figure')
-%     [~, save_file, ~] = fileparts(filename);
-%     save_file_freq = [save_file, num2str(this_freq), 'hz'];
-%     savefig_multiformat(gcf, SAVE_PATH, save_file_freq)
-    
-    % Calculate threshold based on amplitude trends
-% %     ind_thresh = find(is_abovenoise, 1, 'last');
-%     NOISE_MULTIPLE = 2;
-%     metric = get_thresh_averageABR(M_sorted);
-% %     % logistic regression to determine threshold
-% %     [logitCoef,dev] = glmfit(A_descending, metric,'binomial','logit');
-%     is_this_abovenoise = metric > NOISE_MULTIPLE*abs(metric(end));
-%     ind_thresh = find(is_this_abovenoise, 1, 'last');
-%     if isempty(ind_thresh)
-%         thresh_cache = 90; % default 90 dB threshold if no waveform is above the noise floor
-%     else
-%         thresh_cache = str2double(A_descending_cell{ind_thresh});
-%     end
+    % Calculate threshold based on wave 1 amplitude
+    noise_std = std(M_sorted(end, :));
+    wave1_thresh = get_thresh_wave1amp_oghalai(Metric_wave1amp(ff, :), A_descending, noise_std, false);
     
     % Cache variables
-    Amplitude(ff) = amp_cache; % nV
-    Latency(ff) = lat_cache; % ms
-    Threshold(ff) = thresh_cache; % dB
+    Threshold_wave1amp(ff) = wave1_thresh;
+    Stimulus_amplitude(ff, :) = A_descending';
+    Threshold_liberman(ff) = thresh_cache_liberman; % dB
+    Threshold_oghalai(ff) = thresh_cache_oghalai;
+    Metric_liberman(ff, :) = this_metric_liberman;
+    Metric_oghalai(ff, :) = this_metric_oghalai;
 end
 
 t.TileSpacing = 'none';
@@ -198,17 +184,93 @@ t.Padding = 'tight';
 % Maximize figure window size
 fig.WindowState = 'maximized';
 
-% Save figure
-%     disp('Saving figure')
-[~, save_file, ~] = fileparts(filename);
-savefig_multiformat(gcf, SAVE_PATH, save_file)
+% % Save figure
+% %     disp('Saving figure')
+% [~, save_file, ~] = fileparts(filename);
+% savefig_multiformat(gcf, SAVE_PATH, save_file)
+
+% Obtain single trace inner product threshold and AUC level functions
+[auc_cache, ip_mean_cache, ip_ste_cache, thresh_cache_innerprod, auc_lower_cache, auc_upper_cache] = get_roc_innerprod_ABR(fullfile(path, filename));
+Threshold_innerprod = thresh_cache_innerprod;
+Metric_innerprod = ip_mean_cache;
+Metric_innerprod_ste = ip_ste_cache;
+Metric_innerprod_auc = auc_cache;
+Metric_innerprod_auc_lower = auc_lower_cache;
+Metric_innerprod_auc_upper = auc_upper_cache;
+
+% Obtain wave 1 time window (1-2 ms) single trace inner product threshold and AUC level functions
+[auc_window_cache, ip_window_mean_cache, ip_window_ste_cache, thresh_window_cache_innerprod, auc_window_lower_cache, auc_window_upper_cache] = get_roc_innerprod_ABR(fullfile(path, filename), false, TIME_WINDOW);
+Threshold_innerprod_window = thresh_window_cache_innerprod;
+Metric_innerprod_window = ip_window_mean_cache;
+Metric_innerprod_window_ste = ip_window_ste_cache;
+Metric_innerprod_auc_window = auc_window_cache;
+Metric_innerprod_auc_window_lower = auc_window_lower_cache;
+Metric_innerprod_auc_window_upper = auc_window_upper_cache;
 
 % Write cached variables to excel table
+% Structure of table is: filename, frequency, method, threshold, metric
+% level function.
+% Listing of filenames
 [~, baseFileNameNoExt, ~] = fileparts(filename);
 Filenames = cell(n_freq, 1);
 Filenames(:) = {baseFileNameNoExt};  
 Filenames = convertCharsToStrings(Filenames);
-outTable = table(Filenames, Frequency, Amplitude, Latency, Threshold);
+
+% Metric names
+Metric_names_amplitude = repmat("Amplitude", n_freq, 1);
+Metric_names_liberman = repmat("Liberman", n_freq, 1);
+Metric_names_oghalai = repmat("Oghalai", n_freq, 1);
+Metric_names_innerprod = repmat("Innerprod", n_freq, 1);
+Metric_names_innerprod_auc = repmat("Innerprod_auc", n_freq, 1);
+Metric_names_wave1amp = repmat("Wave1amp", n_freq, 1);
+Metric_names_wave1lat = repmat("Wave1lat", n_freq, 1);
+blank_space = nan(n_freq, 1);
+
+% Stimulus amplitudes in place of metrics
+outTable_amplitudes = table(Filenames, Frequency, Metric_names_amplitude, blank_space , ...
+    Stimulus_amplitude);
+outTable_amplitudes.Properties.VariableNames{'Metric_names_amplitude'} = 'Metric';
+outTable_amplitudes.Properties.VariableNames{'blank_space'} = 'Threshold';
+outTable_amplitudes.Properties.VariableNames{'Stimulus_amplitude'} = 'Metric_values';
+% Liberman method results
+outTable_liberman = table(Filenames, Frequency, Metric_names_liberman, Threshold_liberman, ...
+    Metric_liberman);
+outTable_liberman.Properties.VariableNames{'Metric_names_liberman'} = 'Metric';
+outTable_liberman.Properties.VariableNames{'Threshold_liberman'} = 'Threshold';
+outTable_liberman.Properties.VariableNames{'Metric_liberman'} = 'Metric_values';
+% Oghalai method results
+outTable_oghalai = table(Filenames, Frequency, Metric_names_oghalai, Threshold_oghalai, ...
+    Metric_oghalai);
+outTable_oghalai.Properties.VariableNames{'Metric_names_oghalai'} = 'Metric';
+outTable_oghalai.Properties.VariableNames{'Threshold_oghalai'} = 'Threshold';
+outTable_oghalai.Properties.VariableNames{'Metric_oghalai'} = 'Metric_values';
+% Inner product method results 
+outTable_innerprod = table(Filenames, Frequency, Metric_names_innerprod, Threshold_innerprod, ...
+    Metric_innerprod);
+outTable_innerprod.Properties.VariableNames{'Metric_names_innerprod'} = 'Metric';
+outTable_innerprod.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
+outTable_innerprod.Properties.VariableNames{'Metric_innerprod'} = 'Metric_values';
+% Inner product AUC method results
+outTable_innerprod_AUC = table(Filenames, Frequency, Metric_names_innerprod_auc, Threshold_innerprod, ...
+    Metric_innerprod_auc);
+outTable_innerprod_AUC.Properties.VariableNames{'Metric_names_innerprod_auc'} = 'Metric';
+outTable_innerprod_AUC.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
+outTable_innerprod_AUC.Properties.VariableNames{'Metric_innerprod_auc'} = 'Metric_values';
+% Wave 1 amplitude method results
+outTable_wave1amp = table(Filenames, Frequency, Metric_names_wave1amp, Threshold_wave1amp, ...
+    Metric_wave1amp);
+outTable_wave1amp.Properties.VariableNames{'Metric_names_wave1amp'} = 'Metric';
+outTable_wave1amp.Properties.VariableNames{'Threshold_wave1amp'} = 'Threshold';
+outTable_wave1amp.Properties.VariableNames{'Metric_wave1amp'} = 'Metric_values';
+% Wave 1 latency
+outTable_wave1lat = table(Filenames, Frequency, Metric_names_wave1lat, Threshold_wave1amp, ...
+    Metric_wave1lat);
+outTable_wave1lat.Properties.VariableNames{'Metric_names_wave1lat'} = 'Metric';
+outTable_wave1lat.Properties.VariableNames{'Threshold_wave1amp'} = 'Threshold';
+outTable_wave1lat.Properties.VariableNames{'Metric_wave1lat'} = 'Metric_values';
+
+outTable = [outTable_amplitudes; outTable_liberman; outTable_oghalai; outTable_innerprod; outTable_innerprod_AUC; ...
+    outTable_wave1amp; outTable_wave1lat];
 
 % % Save excel sheet output
 % table_filename = [baseFileNameNoExt, '_output.xlsx'];

@@ -39,6 +39,7 @@ for j=1:length(subfolders)
         if IS_ABR
             if contains(filename, "mask", 'IgnoreCase', true)
                 % Masked ABR
+                % TODO: add masked ABR analysis function
                 continue
             else
                 % ABR (unmasked)

@@ -1,16 +1,22 @@
-function thresh = get_thresh_averageABR(M_sorted, A_descending)
+function [thresh, metric] = get_thresh_averageABR_liberman(M_sorted, A_descending)
 % Uses cross covariance between adjacent thresholds. The threshold level is
 % where cross correlation between average ABR of that level and level above
 % is more than a multiple above cross correlation between the noise and the level above it. 
 %
 % Input: M_sorted - sorted average ABR traces. m x n matrix, each row is average ABR trace at level, in
-% descending intensity level. All same frequency.
+%                   descending intensity level. All same frequency.
+%        A_descending - vector of stimulus levels (dB) in descending order
 %
-% output: value of row that is threshold level
+% output: 
+%       thresh - threshold level (dB) calculated using normalized cross
+%                covariance between average ABR traces ('coeff') at zero lag. 
+%       metric - normalized cross covariance values between average ABR
+%                traces.
 %
-% Method based on https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6726521/
+% Method based on Liberman group's published automated method:
+%   https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6726521/
 %
-% 8/16/21 George Liu
+% Last edit: 8/31/21 George Liu
 % Dependencies: none
 
 %% Constant
