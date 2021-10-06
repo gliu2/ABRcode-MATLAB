@@ -4,10 +4,14 @@ function outTable = plotstack_averageABR(varargin)
 % Analyzes wave 1 amplitude and latency in highest stimulus waveform.
 % Estimate ABR threshold.
 %
-% Optional input: plotstack_averageABR(path, filename)
+% Default is for user to select file in dialog box when no input parameters
+% are specified.
 %
-% 7/11/2021 George Liu
-% Dependencies: import_averageABRcsv.m, savefig_multiformat.m, get_wave1_averageABR
+% Optional input syntax for specifying input file: plotstack_averageABR(path, filename)
+%
+% 10/6/2021 George Liu
+% Dependencies: import_averageABRcsv.m, savefig_multiformat.m,
+% get_wave1_averageABR.m, get_roc_innerprod_ABR
 
 %% Constants
 SAVE_PATH = 'd:\users\admin\Documents\George\Results'; % path for saving figures
@@ -244,18 +248,6 @@ outTable_oghalai = table(Filenames, Frequency, Metric_names_oghalai, Threshold_o
 outTable_oghalai.Properties.VariableNames{'Metric_names_oghalai'} = 'Metric';
 outTable_oghalai.Properties.VariableNames{'Threshold_oghalai'} = 'Threshold';
 outTable_oghalai.Properties.VariableNames{'Metric_oghalai'} = 'Metric_values';
-% Inner product method results 
-outTable_innerprod = table(Filenames, Frequency, Metric_names_innerprod, Threshold_innerprod, ...
-    Metric_innerprod);
-outTable_innerprod.Properties.VariableNames{'Metric_names_innerprod'} = 'Metric';
-outTable_innerprod.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
-outTable_innerprod.Properties.VariableNames{'Metric_innerprod'} = 'Metric_values';
-% Inner product AUC method results
-outTable_innerprod_AUC = table(Filenames, Frequency, Metric_names_innerprod_auc, Threshold_innerprod, ...
-    Metric_innerprod_auc);
-outTable_innerprod_AUC.Properties.VariableNames{'Metric_names_innerprod_auc'} = 'Metric';
-outTable_innerprod_AUC.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
-outTable_innerprod_AUC.Properties.VariableNames{'Metric_innerprod_auc'} = 'Metric_values';
 % Wave 1 amplitude method results
 outTable_wave1amp = table(Filenames, Frequency, Metric_names_wave1amp, Threshold_wave1amp, ...
     Metric_wave1amp);
@@ -268,6 +260,24 @@ outTable_wave1lat = table(Filenames, Frequency, Metric_names_wave1lat, Threshold
 outTable_wave1lat.Properties.VariableNames{'Metric_names_wave1lat'} = 'Metric';
 outTable_wave1lat.Properties.VariableNames{'Threshold_wave1amp'} = 'Threshold';
 outTable_wave1lat.Properties.VariableNames{'Metric_wave1lat'} = 'Metric_values';
+
+if ~isempty(Threshold_innerprod)
+    % Inner product method results 
+    outTable_innerprod = table(Filenames, Frequency, Metric_names_innerprod, Threshold_innerprod, ...
+        Metric_innerprod);
+    outTable_innerprod.Properties.VariableNames{'Metric_names_innerprod'} = 'Metric';
+    outTable_innerprod.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
+    outTable_innerprod.Properties.VariableNames{'Metric_innerprod'} = 'Metric_values';
+    % Inner product AUC method results
+    outTable_innerprod_AUC = table(Filenames, Frequency, Metric_names_innerprod_auc, Threshold_innerprod, ...
+        Metric_innerprod_auc);
+    outTable_innerprod_AUC.Properties.VariableNames{'Metric_names_innerprod_auc'} = 'Metric';
+    outTable_innerprod_AUC.Properties.VariableNames{'Threshold_innerprod'} = 'Threshold';
+    outTable_innerprod_AUC.Properties.VariableNames{'Metric_innerprod_auc'} = 'Metric_values';
+else
+    outTable_innerprod = [];
+    outTable_innerprod_AUC = [];
+end
 
 outTable = [outTable_amplitudes; outTable_liberman; outTable_oghalai; outTable_innerprod; outTable_innerprod_AUC; ...
     outTable_wave1amp; outTable_wave1lat];

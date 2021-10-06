@@ -92,9 +92,19 @@ parent_folder = fullfile(selpath, file_pattern);
 dir_files = dir(parent_folder);
 n_files = numel(dir_files);
 
-% Throw error if parent directory contains no single trace ABR CSV Files.
+% Throw warning message and abort if parent directory contains no single trace ABR CSV Files.
 if isempty(dir_files) 
-    error(['Error ocurred. No single trace ABR CSV files in folder: ', parent_folder])
+    disp(['Warning! No single trace ABR CSV files in parent folder: ', parent_folder])
+    disp('-> Aborting single trace analysis of ABR in get_roc_innerprod_ABR.m, line 98.')
+    disp('')
+    % Assign null values to outputs and return
+    auc_cache = [];
+    ip_mean_cache = [];
+    ip_ste_cache = []; 
+    thresh_cache = [];
+    auc_lower_cache = [];
+    auc_upper_cache = [];
+    return
 end
 
 ip_dists = cell(n_files, 1);
