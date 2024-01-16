@@ -8,7 +8,7 @@ function [date, name, studytype, side, metadata] = get_mousefile_metadata(filena
 % Output:
 %       date - date of study, e.g., '20210829'. String / char array
 %
-% Last edit 9/1/21, George Liu
+% Last edit 12/7/21, George Liu
 
 %% Constants
 PATH_KEY = 'd:\users\admin\Documents\George\mouse_metadata.xlsx';

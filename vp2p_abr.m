@@ -14,7 +14,7 @@
 % Output: max_p2p - maximum peak-to-peak voltages, (m_traces, 1)
 %
 % Dependencies: PTDetect.m
-% Last edit: 6/3/2019
+% Last edit: 7/27/23
 %
 % Author: George Liu
 
@@ -38,6 +38,12 @@ for i = 1:m_traces
     [P, T] = PTDetect(y_rel, PEAK_THRESH);
 
     %Find maximum peak-to-peak amplitude in average ABR at each dB level
+    % If no peak, then throw warning and return NAN
+    if isempty(P) || isempty(T)
+        max_p2p(i) = NaN;
+        disp(['  Warning: no peak found in trace ', num2str(i)])
+        continue
+    end
     
     % If peak first, then pair peak with trough and trough before
     if P(1) < T(1) % # troughs = # peaks OR # peaks-1

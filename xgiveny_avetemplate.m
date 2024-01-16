@@ -16,14 +16,29 @@
 % Output: x_thresh - x-coordinate where plot first reaches input y-value
 %
 % Dependencies: none
-% Last edit: 6/7/2019
-%
+% 
 % Author: George Liu
 %
-% Revision by Daibhid O Maoileidigh, Last edit: 7/23/2019
+% Last edit: 
+% 8-25-23 - reorder inputs so that y_features and A_csv are increasing in
+%           A_csv order
+% 12/7/21 - remove NaN from y_features and A_csv input variables
+% to ensure that their lengths are the same.
+%
+% Revision by Daibhid O Maoileidigh 7/23/2019
 % Ensure that all higher inputs are above the threshold
 
 function x_thresh = xgiveny_avetemplate(y_cutoff, y_features, A_csv)
+
+% Remove missing values from input arrays
+if any(ismissing(y_features)) || any(ismissing(A_csv))
+    y_features = rmmissing(y_features);
+    A_csv = rmmissing(A_csv);
+end
+
+% Reorder inputs in order of increasing A_csv
+[A_csv, I] = sort(A_csv);
+y_features = y_features(I);
 
 %is_thresh = y_features > y_cutoff;
 is_thresh = y_features <= y_cutoff;%(DOM)

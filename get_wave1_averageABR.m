@@ -1,4 +1,4 @@
-function [peak_pt, trough_pt, amp, latency] = get_wave1_averageABR(x, y, varargin)
+function [peak_pt, trough_pt, amp, latency, latency_trough] = get_wave1_averageABR(x, y, varargin)
 % Measure wave 1 in average ABR waveform using peak detection algorithm.
 % Calculates peak-peak wave 1 amplitude from wave 1 peak to following
 % trough.
@@ -14,8 +14,15 @@ function [peak_pt, trough_pt, amp, latency] = get_wave1_averageABR(x, y, varargi
 %       trough_pt - 2 element vector of wave 1 trough coordinates, (x2,y2)
 %       amp     - scalar value of wave 1 p-p amplitude. Equal to y1-y2.
 %       latency - scalar value of wave 1 latency. Equal to x1.
+%       latency_trough
 %
-% Last edit 8/31/2021 George Liu
+% Last edit George Liu
+% 12/8/21 - if trough is not found, use prior trough latency to estimate
+% trough location
+%
+% 10/22/21 - added latency of trough as an output
+%
+% 8/31/2021 
 %       Updated to add optional input to specify x-coordinate of wave 1
 %       peak, and rules to ensure wave 1 peak and trough latencies do not
 %       decrease at lower stimulus levels.
@@ -26,11 +33,12 @@ function [peak_pt, trough_pt, amp, latency] = get_wave1_averageABR(x, y, varargi
 PEAK_SENSITIVITY = 0.1;
 % Parameters for searching for wave 1 peak in highest stimulus level
 PEAK_START = 1; % start time (ms) 
-PEAK_END = 2;
-TROUGH_START = 1.5; % ms
-TROUGH_END = 2.5; 
+PEAK_END = 3;
+TROUGH_START = 1.6; % ms
+TROUGH_END = 3.0; % consider changing to 2.9
 % Parameters for searching for wave 1 peak in highest stimulus level
-MAX_PEAK_TROUGH_TIME = 0.7; % ms. Maximum time between wave 1 peak and trough.
+MAX_PEAK_TROUGH_TIME = 0.9; % ms. Maximum time between wave 1 peak and trough. Consider changing to 0.9
+MAX_PEAK_LAT_BACKWARD = 0.1; % ms. Maximum time that wave 1 peak latency can decrease at lower stimulus level.
 
 %% get wave 1 peak coordinates
 [P, T] = PTDetect(y, PEAK_SENSITIVITY);
@@ -56,19 +64,31 @@ y_trough = y(T);
 
 is_ind_trough_candidates = (x_trough > TROUGH_START) & (x_trough < TROUGH_END) & (x_trough > peak_pt(1));
 if ~any(is_ind_trough_candidates)
-    disp('Warning: Trough not found')
-    peak_pt = [NaN, NaN];
-    trough_pt = [NaN, NaN];
-    amp = NaN;
-    latency = NaN;
-    return
-end
-ind2 = find(is_ind_trough_candidates, 2);
-trough_pt = [x_trough(ind2(1)), y_trough(ind2(1))];
-% Check that next trough is not real trough
-if length(ind2) > 1
-    if (y_trough(ind2(2)) < y_trough(ind2(2))) && (x_trough(ind2(2)) < TROUGH_END)
-        trough_pt = [x_trough(ind2(2)), y_trough(ind2(2))];
+    if isempty(varargin)
+        disp('Warning: Trough not found. In get_wave1_averageABR (line 67)')
+        peak_pt = [NaN, NaN];
+        trough_pt = [NaN, NaN];
+        amp = peak_pt(2) - trough_pt(2);
+        latency = peak_pt(1);
+        latency_trough = trough_pt(1);
+        return
+    else
+        % 12-8-21: if trough not found, then estimate trough using prior wave 1 latency
+        disp('Warning: Trough not found; using previous level trough to estimate. In get_wave1_averageABR (line 75')
+        prior_wave1_trough_latency = varargin{2};
+        
+        % find candidate trough point closest to prior trough
+        [~, ind_x_closest_trough] = min(abs(x_trough - prior_wave1_trough_latency));
+        trough_pt = [x_trough(ind_x_closest_trough), y_trough(ind_x_closest_trough)];
+    end
+else
+    ind2 = find(is_ind_trough_candidates, 2);
+    trough_pt = [x_trough(ind2(1)), y_trough(ind2(1))];
+    % Check that next trough is not real trough
+    if length(ind2) > 1
+        if (y_trough(ind2(2)) < y_trough(ind2(1))) && (x_trough(ind2(2)) < TROUGH_END)
+            trough_pt = [x_trough(ind2(2)), y_trough(ind2(2))];
+        end
     end
 end
 
@@ -79,7 +99,7 @@ if ~isempty(varargin)
     prior_wave1_latency = varargin{1};
     % Edit wave 1 latency only if it has decreased from higher stimulus
     % level
-    if peak_pt(1) < prior_wave1_latency 
+    if peak_pt(1) < prior_wave1_latency - MAX_PEAK_LAT_BACKWARD
         % determine trough first, as wave 1 peak must be before
         trough_max_time = prior_wave1_latency + MAX_PEAK_TROUGH_TIME;
         is_ind_trough_candidates_next = (x_trough > prior_wave1_latency) & (x_trough < trough_max_time);
@@ -156,5 +176,6 @@ end
 % calculate wave 1 amplitude and latency
 amp = peak_pt(2) - trough_pt(2);
 latency = peak_pt(1);
+latency_trough = trough_pt(1);
 
 end

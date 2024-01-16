@@ -2,11 +2,12 @@ function [M, A_csv, freq_csv] = import_averageABRcsv(filename, path)
 %import_averageABRcsv.m - Import CSV file containing average ABR trace data
 % Read average ABR response for CSV spreadsheet that is exported from
 % BioSigRZ workspace.
-% Data values are: x-axis time (ms); y-axis voltage (nV); sampling rate 200K Hz
+% Data values are: x-axis time (samples); y-axis voltage (nV); sampling
+% rate 24.4K Hz (sample period 40.96 us/sample)
 %
 % Output: 
 %       M        - n x m array of n average traces, each with m data samples. In
-%                this case there are 244 data samples.
+%                this case there are 244 data samples. Voltage units are nV.
 %
 %       freq_csv - frequencies of average traces. n x 1 vector
 %       A_csv    - stimulus levels of average traces. n x 1 vector

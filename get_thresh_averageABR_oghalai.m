@@ -36,7 +36,7 @@ function [thresh, metric] = get_thresh_averageABR_oghalai(M_sorted, A_descending
 %
 % Last edit: 8/31/21 George Liu
 %
-% Dependencies: vp2p_abr.m, xgiveny_DOM.m
+% Dependencies: vp2p_abr.m, xgiveny_avetemplate.m
 
 %% Constant
 PEAK_THRESH = 0.1;
@@ -59,7 +59,9 @@ noise_rms = rms(M_sorted(end, :)); % RMS of noise floor
 
 % Calculate standard deviation of noise signal (lowest stimulus level). 
 % Could approximate with RMS unless signal average is not zero.
-noise_std = std(M_sorted(end, :));
+% noise_std = std(M_sorted(end, :));
+noise_std_alllevels = std(M_sorted'); % row vector containing standard deviation for each level
+noise_std = min(noise_std_alllevels); % in case there is extra noise in 0 dB trace c/w 10 dB trace
 
 % Calculate thresholds by fitting ABR p-p voltages with a cubic spline and 
 % identifying when signal is four standard deviations above the noise floor

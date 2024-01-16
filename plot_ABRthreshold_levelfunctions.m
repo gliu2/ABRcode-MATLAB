@@ -2,20 +2,26 @@
 %
 % 9/2/21 George Liu
 % Dependencies: get_mousefile_metadata.m, savefig_multiformat.m
+%
+% Last edit: 9/10/2022
 
 %% Constants
 SAVE_PATH = 'd:\users\admin\Documents\George\Results'; % path for saving figures
 LOAD_PATH = 'd:\users\admin\Documents\George\Results_9-1-21';
 BATCHGROUPS = {1:4, 5:6, 7};
 N_GROUPS = numel(BATCHGROUPS);
-METRIC_NAMES = {'Liberman', 'Oghalai', 'Innerprod', 'Innerprod-AUC'};
+% METRIC_NAMES = {'Liberman', 'Oghalai', 'Innerprod', 'Innerprod-AUC'};
+METRIC_NAMES = {'Wave1amp'};
 n_metrics = numel(METRIC_NAMES);
 FREQ = [8000, 16000, 32000];
 n_freq = numel(FREQ);
-COLS_METRICVALS = 22:size(finalTable_metadata, 2); % column numbers of metric values columns in finalTable_metadata table
 CONTROL_NOISE_LABEL = {'control', 'noise'};
-YLIM_METRIC = {[-0.4, 1], [0, 6250], [0, 2.5*10^-9], [0.5, 1]};
-YLABEL_METRIC = {'Correlation coefficient (a.u.)', 'Max p-p amplitude (nV)', 'Mean inner product (nv^2)', 'AUC (a.u.)'}; 
+% YLIM_METRIC = {[-0.4, 1], [0, 6250], [0, 2.5*10^-9], [0.5, 1]};
+% YLABEL_METRIC = {'Correlation coefficient (a.u.)', 'Max p-p amplitude (nV)', 'Mean inner product (nv^2)', 'AUC (a.u.)'}; 
+
+YLIM_METRIC = {[0, 6000]};
+YLABEL_METRIC = {'Wave 1 amplitude (nV)'}; 
+
 
 % Initialize groups of measurements
 % Frequency = freq_unique;
@@ -28,51 +34,62 @@ YLABEL_METRIC = {'Correlation coefficient (a.u.)', 'Max p-p amplitude (nV)', 'Me
 % Metric_innerprod = zeros(n_freq, num_levels);
 % Metric_innerprod_auc = zeros(n_freq, num_levels);
 
-%% Load data from all ABR analysis output table files into one aggregate table
-fileList = dir(fullfile(LOAD_PATH, '*_abr_output.xlsx'));
-n_files = length(fileList);
-for j=1:n_files
-    disp(['Working on file ', num2str(j), ' out of ', num2str(n_files), ': ', fileList(j).name])
-    outputFile = fullfile(LOAD_PATH, fileList(j).name);
-    outputTable = readtable(outputFile);
-    
-    % Rename Metric_values_n variable names to stimulus amplitudes
-    variablenames = outputTable.Properties.VariableNames;
-    n_variables = numel(variablenames);
-    new_variablenames = variablenames;
-    for i=1:n_variables
-        if contains(variablenames{i}, 'Metric_values', 'IgnoreCase',true)
-            stimulus_amplitude = outputTable.(variablenames{i})(1); % stimulus amplitude
-            new_variablenames{i} = num2str(stimulus_amplitude);
+%% Option to load saved table of aggregate ABR data with metadata, 
+% or load data from scratch from ABR analysis output files
+PATH_SAVED_METADATA = 'd:\users\admin\Documents\George\finalTable_metadata_4-18-22\';
+[filename,path] = uigetfile({'*.mat'}, 'Select a file', PATH_SAVED_METADATA);
+
+if any(filename)
+    % load a saved finalTable_metadata file
+    load(fullfile(path, filename))
+else % no user selected metadata file
+    % Load data from all ABR analysis output table files into one aggregate table
+    fileList = dir(fullfile(LOAD_PATH, '*_abr_output.xlsx'));
+    n_files = length(fileList);
+    for j=1:n_files
+        disp(['Working on file ', num2str(j), ' out of ', num2str(n_files), ': ', fileList(j).name])
+        outputFile = fullfile(LOAD_PATH, fileList(j).name);
+        outputTable = readtable(outputFile);
+
+        % Rename Metric_values_n variable names to stimulus amplitudes
+        variablenames = outputTable.Properties.VariableNames;
+        n_variables = numel(variablenames);
+        new_variablenames = variablenames;
+        for i=1:n_variables
+            if contains(variablenames{i}, 'Metric_values', 'IgnoreCase',true)
+                stimulus_amplitude = outputTable.(variablenames{i})(1); % stimulus amplitude
+                new_variablenames{i} = num2str(stimulus_amplitude);
+            end
+        end
+        outputTable.Properties.VariableNames = new_variablenames;
+
+        % Concatenate tables
+        if j==1
+            finalTable = outputTable;
+        else
+            finalTable = outerjoin(finalTable,outputTable,'MergeKeys', true);
         end
     end
-    outputTable.Properties.VariableNames = new_variablenames;
-    
-    % Concatenate tables
-    if j==1
-        finalTable = outputTable;
-    else
-        finalTable = outerjoin(finalTable,outputTable,'MergeKeys', true);
-    end
-end
 
-%% Add metadata to table
-n_rows = size(finalTable, 1);
-for k=1:n_rows
-    disp(['Working on metadata row ', num2str(k), ' out of ', num2str(n_rows)])
-    date_name = finalTable.Filenames(k);
-    [date, name, studytype, side, metadata] = get_mousefile_metadata(date_name);
-    metadata.('Date') = date;
-    metadata.('Side') = side;
-    metadata.('Studytype') = studytype;
-    if k==1
-        metadata_aggregate = metadata;
-    else
-        metadata_aggregate = vertcat(metadata_aggregate,metadata);
+    % Add metadata to table
+    n_rows = size(finalTable, 1);
+    for k=1:n_rows
+        disp(['Working on metadata row ', num2str(k), ' out of ', num2str(n_rows)])
+        date_name = finalTable.Filenames(k);
+        [date, name, studytype, side, metadata] = get_mousefile_metadata(date_name);
+        metadata.('Date') = date;
+        metadata.('Side') = side;
+        metadata.('Studytype') = studytype;
+        if k==1
+            metadata_aggregate = metadata;
+        else
+            metadata_aggregate = vertcat(metadata_aggregate,metadata);
+        end
     end
-end
 
-finalTable_metadata = [metadata_aggregate, finalTable];
+    finalTable_metadata = [metadata_aggregate, finalTable];
+
+end
 
 %% Create filters for selecting data by metric type, noise/control, timepoint
 % Metric filters
@@ -88,9 +105,9 @@ is_control = ~is_noise;
 control_noise_selector = {is_control, is_noise};
 
 % Timepoint
-is_pre = strcmp(finalTable_metadata.('Date_1'), finalTable_metadata.('Date'));
-is_post24 = strcmp(finalTable_metadata.('Date_2'), finalTable_metadata.('Date'));
-is_post1w = strcmp(finalTable_metadata.('Date_3'), finalTable_metadata.('Date'));
+is_pre = strcmp(string(finalTable_metadata.('Date_1')), string(finalTable_metadata.('Date')));
+is_post24 = strcmp(string(finalTable_metadata.('Date_2')), string(finalTable_metadata.('Date')));
+is_post1w = strcmp(string(finalTable_metadata.('Date_3')), string(finalTable_metadata.('Date')));
 timepoints = {is_pre, is_post24, is_post1w};
 n_timepoints = numel(timepoints);
 name_timepoints = ["Pre", "Post 24h", "Post 1w"];
@@ -131,6 +148,8 @@ for gg = 1:N_GROUPS
 end
 
 %% Plot level functions
+COLS_METRICVALS = 22:size(finalTable_metadata, 2); % column numbers of metric values columns in finalTable_metadata table
+
 for mm = 1:n_metrics % select metric type
     for nn =  1:2 % nn = 1 is control, nn=2 is noise
         for gg = 1:N_GROUPS 

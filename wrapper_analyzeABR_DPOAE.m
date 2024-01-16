@@ -50,6 +50,52 @@ for j=1:length(subfolders)
             output_table = plotstack_DPOAE(this_path, filename);
         end
         
+        % 11-4-21 added
+        % Ensure number of stimulus levels (dB) are same in output table
+        % and cached table results to allow vertical concatenation
+        if ~isempty(final_table)
+            stimulus_levels_output = output_table.Metric_values(1,:);
+            stimulus_levels_cache = final_table.Metric_values(1,:);
+            
+            % check if stimulus levels are same
+            num_levels_output = numel(stimulus_levels_output);
+            num_levels_cache = numel(stimulus_levels_cache);
+            if num_levels_output ~= num_levels_cache
+                % Merge stimulus levels of two tables
+                % cache table
+                outstanding_levels_output = setdiff(stimulus_levels_output, stimulus_levels_cache);
+                if ~isempty(outstanding_levels_output)
+                    % Insert missing levels
+                    add_cols = [];
+                    for z=outstanding_levels_output
+                        new_col = NaN(size(final_table.Metric_values, 1), 1);
+                        new_col(1:3) = z;
+                        add_cols = [add_cols, new_col];
+                    end
+                    new_final_table_metricvals = [final_table.Metric_values, add_cols];
+                    [new_stimulus_levels_cache, ind_levels_sorted] = sort(new_final_table_metricvals(1,:), 'descend');
+                    new_final_table_metricvals = new_final_table_metricvals(:, ind_levels_sorted);
+                    final_table.Metric_values = new_final_table_metricvals;
+                end
+                
+                % output table
+                outstanding_levels_cache = setdiff(stimulus_levels_cache, stimulus_levels_output);
+                if ~isempty(outstanding_levels_cache)
+                    % Insert missing levels
+                    add_cols = [];
+                    for z=outstanding_levels_cache
+                        new_col = NaN(size(output_table.Metric_values, 1), 1);
+                        new_col(1:3) = z;
+                        add_cols = [add_cols, new_col];
+                    end
+                    new_output_table_metricvals = [output_table.Metric_values, add_cols];
+                    [new_stimulus_levels_output, ind_levels_sorted] = sort(new_output_table_metricvals(1,:), 'descend');
+                    new_output_table_metricvals = new_output_table_metricvals(:, ind_levels_sorted);
+                    output_table.Metric_values = new_output_table_metricvals;
+                end
+            end
+        end
+        
         % Cache table results
         final_table = vertcat(final_table, output_table);
     end
